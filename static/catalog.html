@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contract Catalog — Prediction Market Research</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080d14;
+    --surface:   #0d1520;
+    --surface2:  #111c2e;
+    --border:    #1a2840;
+    --border2:   #243350;
+    --text:      #c8d6e8;
+    --text-dim:  #5e7a9a;
+    --text-mute: #344d6a;
+    --accent:    #3b82f6;
+    --accent-dim:#1d4ed8;
+    --green:     #22c55e;
+    --yellow:    #eab308;
+    --red:       #ef4444;
+    --mono:      'Courier New', Courier, monospace;
+    --sans:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #1d4ed8, #7c3aed);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .logo-text { font-size: 14px; font-weight: 700; color: #e2eaf4; letter-spacing: .3px; }
+  .logo-sub  { font-size: 10px; color: var(--text-dim); letter-spacing: .8px; text-transform: uppercase; margin-top: 1px; }
+  .header-sep { width: 1px; height: 26px; background: var(--border2); flex-shrink: 0; }
+  .search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 0 12px;
+    flex: 1;
+    max-width: 480px;
+  }
+  .search-wrap svg { color: var(--text-mute); flex-shrink: 0; }
+  #searchInput {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 13px;
+    width: 100%;
+    padding: 8px 0;
+    font-family: var(--sans);
+  }
+  #searchInput::placeholder { color: var(--text-mute); }
+  .header-right { margin-left: auto; }
+  .btn-new {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: var(--sans);
+  }
+  .btn-new:hover { background: var(--accent-dim); }
+
+  /* ---- LAYOUT ---- */
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ---- LEFT PANEL (list) ---- */
+  .panel-list {
+    width: 420px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-toolbar {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+  .panel-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  #contractCount { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .contract-list { overflow-y: auto; flex: 1; }
+
+  .contract-row {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .1s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .contract-row:hover { background: var(--surface2); }
+  .contract-row.active { background: #0f1e36; border-left: 3px solid var(--accent); }
+  .row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .row-name { font-weight: 600; font-size: 13px; color: #dce8f5; line-height: 1.3; }
+  .row-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-family: var(--mono);
+  }
+  .badge-binary     { background: #1e3a5f; color: #7eb8f7; border: 1px solid #2a4e7a; }
+  .badge-categorical{ background: #2d1e5f; color: #b09ef7; border: 1px solid #3d2a7a; }
+  .badge-low    { background: #14301a; color: #4ade80; border: 1px solid #1e4426; }
+  .badge-medium { background: #2e2000; color: #facc15; border: 1px solid #433000; }
+  .badge-high   { background: #300a0a; color: #f87171; border: 1px solid #4a1010; }
+
+  .row-oracle { font-size: 11px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-mute);
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  /* ---- RIGHT PANEL (detail / form) ---- */
+  .panel-detail {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px;
+    max-width: 760px;
+  }
+
+  /* placeholder */
+  .detail-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 400px;
+    gap: 12px;
+    color: var(--text-mute);
+  }
+  .detail-placeholder svg { opacity: .25; }
+  .detail-placeholder p { font-size: 13px; }
+
+  /* contract detail */
+  .detail-header { margin-bottom: 24px; }
+  .detail-id { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 8px; }
+  .detail-name { font-size: 22px; font-weight: 700; color: #e8f0fa; line-height: 1.2; margin-bottom: 12px; }
+  .detail-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .detail-section { margin-bottom: 24px; }
+  .detail-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field-label { font-size: 10px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; }
+  .field-value { font-family: var(--mono); font-size: 12px; color: var(--text); line-height: 1.5; }
+  .field-value.full { grid-column: 1 / -1; }
+
+  .detail-text {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    font-family: var(--sans);
+  }
+  .detail-actions { display: flex; gap: 10px; margin-top: 28px; }
+  .btn-delete {
+    background: none;
+    color: var(--red);
+    border: 1px solid #4a1010;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .15s;
+  }
+  .btn-delete:hover { background: #300a0a; }
+
+  /* ---- ADD FORM ---- */
+  .form-wrap { max-width: 640px; }
+  .form-title { font-size: 17px; font-weight: 700; color: #e8f0fa; margin-bottom: 6px; }
+  .form-sub   { font-size: 12px; color: var(--text-dim); margin-bottom: 24px; }
+
+  .form-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    margin-top: 24px;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .6px; }
+  .form-input, .form-select, .form-textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 9px 12px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color .15s;
+    width: 100%;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--accent);
+  }
+  .form-textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+  .form-select option { background: var(--surface2); }
+  .form-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-submit {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .15s;
+  }
+  .btn-submit:hover { background: var(--accent-dim); }
+  .btn-cancel {
+    background: none;
+    color: var(--text-dim);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .15s;
+  }
+  .btn-cancel:hover { background: var(--surface2); }
+  .form-error { color: var(--red); font-size: 12px; margin-top: 4px; display: none; }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #163a20;
+    border: 1px solid #1e5a2e;
+    color: #4ade80;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📋</div>
+    <div>
+      <div class="logo-text">ContractDB</div>
+      <div class="logo-sub">Prediction Market Research</div>
+    </div>
+  </div>
+  <div class="header-sep"></div>
+  <div class="search-wrap">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input id="searchInput" type="text" placeholder="Search contracts, oracles, rules…" autocomplete="off">
+  </div>
+  <div class="header-right">
+    <button class="btn-new" onclick="showForm()">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      New Contract
+    </button>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- LIST -->
+  <div class="panel-list">
+    <div class="panel-toolbar">
+      <span class="panel-label">Event Contracts</span>
+      <span id="contractCount">— records</span>
+    </div>
+    <div class="contract-list" id="contractList"></div>
+  </div>
+
+  <!-- DETAIL -->
+  <div class="panel-detail" id="panelDetail">
+    <div class="detail-placeholder" id="detailPlaceholder">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <p>Select a contract to view details</p>
+    </div>
+    <div id="detailView" style="display:none"></div>
+    <div id="formView" style="display:none"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let allContracts = [];
+  let activeId = null;
+
+  // ---- INIT ----
+  async function load(q = '') {
+    const url = q ? `/api/contracts?q=${encodeURIComponent(q)}` : '/api/contracts';
+    const res = await fetch(url);
+    allContracts = await res.json();
+    renderList(allContracts);
+  }
+
+  function renderList(contracts) {
+    const el = document.getElementById('contractList');
+    document.getElementById('contractCount').textContent = `${contracts.length} record${contracts.length !== 1 ? 's' : ''}`;
+
+    if (contracts.length === 0) {
+      el.innerHTML = `<div class="empty-state"><svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg><p>No contracts found</p></div>`;
+      return;
+    }
+
+    el.innerHTML = contracts.map(c => `
+      <div class="contract-row ${c.id === activeId ? 'active' : ''}" onclick="selectContract(${c.id})" data-id="${c.id}">
+        <div class="row-top">
+          <div class="row-name">${esc(c.event_name)}</div>
+          <span class="badge badge-${c.manipulation_risk}">${riskLabel(c.manipulation_risk)}</span>
+        </div>
+        <div class="row-meta">
+          <span class="badge badge-${c.market_type}">${c.market_type}</span>
+        </div>
+        <div class="row-oracle">${esc(c.oracle_source)}</div>
+      </div>
+    `).join('');
+  }
+
+  // ---- DETAIL ----
+  async function selectContract(id) {
+    activeId = id;
+    document.querySelectorAll('.contract-row').forEach(r =>
+      r.classList.toggle('active', parseInt(r.dataset.id) === id)
+    );
+    const res = await fetch(`/api/contracts/${id}`);
+    const c = await res.json();
+    showDetail(c);
+  }
+
+  function showDetail(c) {
+    hide('detailPlaceholder');
+    hide('formView');
+    show('detailView');
+
+    document.getElementById('detailView').innerHTML = `
+      <div class="detail-header">
+        <div class="detail-id">CONTRACT · ID-${String(c.id).padStart(4,'0')} · ${fmt(c.created_at)}</div>
+        <div class="detail-name">${esc(c.event_name)}</div>
+        <div class="detail-badges">
+          <span class="badge badge-${c.market_type}">${c.market_type}</span>
+          <span class="badge badge-${c.manipulation_risk}">${riskLabel(c.manipulation_risk)} MANIPULATION RISK</span>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-label">Contract Specification</div>
+        <div class="field-grid">
+          <div class="field">
+            <div class="field-label">Market Type</div>
+            <div class="field-value">${c.market_type}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Manipulation Risk</div>
+            <div class="field-value">${c.manipulation_risk.toUpperCase()}</div>
+          </div>
+          <div class="field full">
+            <div class="field-label">Oracle Source</div>
+            <div class="field-value">${esc(c.oracle_source)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-label">Settlement Rule</div>
+        <div class="detail-text">${esc(c.settlement_rule)}</div>
+      </div>
+
+      ${c.notes ? `
+      <div class="detail-section">
+        <div class="detail-section-label">Research Notes</div>
+        <div class="detail-text">${esc(c.notes)}</div>
+      </div>` : ''}
+
+      <div class="detail-actions">
+        <button class="btn-delete" onclick="deleteContract(${c.id}, '${esc(c.event_name).replace(/'/g, "\\'")}')">Delete Contract</button>
+      </div>
+    `;
+  }
+
+  // ---- FORM ----
+  function showForm() {
+    activeId = null;
+    document.querySelectorAll('.contract-row').forEach(r => r.classList.remove('active'));
+    hide('detailPlaceholder');
+    hide('detailView');
+    show('formView');
+
+    document.getElementById('formView').innerHTML = `
+      <div class="form-wrap">
+        <div class="form-title">Add New Contract</div>
+        <div class="form-sub">Define a new event contract for the research catalog.</div>
+
+        <div class="form-section-label">Event Details</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Event Name *</label>
+            <input class="form-input" id="f_event_name" placeholder="e.g. Federal Reserve Rate Decision — Mar 2026" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Market Type *</label>
+            <select class="form-select" id="f_market_type">
+              <option value="">Select…</option>
+              <option value="binary">Binary</option>
+              <option value="categorical">Categorical</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Manipulation Risk *</label>
+            <select class="form-select" id="f_manipulation_risk">
+              <option value="">Select…</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section-label">Oracle & Settlement</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Oracle Source *</label>
+            <input class="form-input" id="f_oracle_source" placeholder="e.g. Associated Press official call">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Settlement Rule *</label>
+            <textarea class="form-textarea" id="f_settlement_rule" placeholder="Describe the exact resolution criteria…"></textarea>
+          </div>
+        </div>
+
+        <div class="form-section-label">Research Notes</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="f_notes" placeholder="Risk factors, liquidity considerations, historical precedents…" style="min-height:110px"></textarea>
+          </div>
+        </div>
+
+        <div class="form-error" id="formError"></div>
+        <div class="form-actions">
+          <button class="btn-submit" onclick="submitForm()">Add to Catalog</button>
+          <button class="btn-cancel" onclick="cancelForm()">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function submitForm() {
+    const fields = {
+      event_name:        document.getElementById('f_event_name').value.trim(),
+      market_type:       document.getElementById('f_market_type').value,
+      oracle_source:     document.getElementById('f_oracle_source').value.trim(),
+      settlement_rule:   document.getElementById('f_settlement_rule').value.trim(),
+      manipulation_risk: document.getElementById('f_manipulation_risk').value,
+      notes:             document.getElementById('f_notes').value.trim(),
+    };
+
+    const missing = ['event_name','market_type','oracle_source','settlement_rule','manipulation_risk']
+      .filter(k => !fields[k]);
+
+    if (missing.length) {
+      showError('Please fill in all required fields.');
+      return;
+    }
+
+    const res = await fetch('/api/contracts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showError(err.detail || 'Failed to create contract.');
+      return;
+    }
+
+    const data = await res.json();
+    toast('Contract added to catalog');
+    await load(document.getElementById('searchInput').value);
+    selectContract(data.id);
+  }
+
+  function cancelForm() {
+    show('detailPlaceholder');
+    hide('formView');
+    hide('detailView');
+  }
+
+  // ---- DELETE ----
+  async function deleteContract(id, name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/contracts/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      activeId = null;
+      toast('Contract deleted');
+      hide('detailView');
+      show('detailPlaceholder');
+      await load(document.getElementById('searchInput').value);
+    }
+  }
+
+  // ---- SEARCH ----
+  let searchTimer;
+  document.getElementById('searchInput').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => load(e.target.value.trim()), 220);
+  });
+
+  // ---- HELPERS ----
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function riskLabel(r) { return r === 'low' ? '▼ LOW' : r === 'high' ? '▲ HIGH' : '◆ MED'; }
+  function fmt(ts) {
+    if (!ts) return '—';
+    try { return new Date(ts + 'Z').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }); }
+    catch { return ts; }
+  }
+  function show(id) { document.getElementById(id).style.display = ''; }
+  function hide(id) { document.getElementById(id).style.display = 'none'; }
+  function showError(msg) {
+    const el = document.getElementById('formError');
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+  }
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ---- START ----
+  load();
+</script>
+</body>
+</html>

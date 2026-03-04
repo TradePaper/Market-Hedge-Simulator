@@ -1,88 +1,61 @@
-# Sports Probability Platform
+# Replit Project
 
-Two tools for analysing and hedging sports event risk:
+## Current Application: ContractDB — Prediction Market Contract Catalog
 
-1. **Hedge Simulator** — FastAPI + Monte Carlo engine (Python, port 5000 when active)
-2. **ProbEdge Dashboard** — Next.js probability comparison dashboard (currently running on port 5000)
-
----
-
-## ProbEdge Dashboard (Next.js — active)
-
-A financial-market-style dashboard that compares sportsbook implied probabilities against prediction market prices for 8 live sports events.
+A research database for cataloging event contracts used in prediction markets.
 
 ### Stack
-- **Framework**: Next.js 14 (App Router, TypeScript)
-- **Styling**: Tailwind CSS v4 + `@tailwindcss/postcss`
-- **Charts**: Recharts
-- **Data**: Mock/simulated in `lib/mockData.ts`
-
-### Key Files
-
-| File | Purpose |
-|------|---------|
-| `app/page.tsx` | Main dashboard page (server component) |
-| `app/layout.tsx` | Root layout + metadata |
-| `app/globals.css` | Tailwind v4 import + theme variables |
-| `app/components/AlertBanner.tsx` | Dismissable yellow alert for >5% divergence |
-| `app/components/StatsBar.tsx` | 4 headline stat cards |
-| `app/components/ProbabilityTable.tsx` | Sortable 8-event table with probability bars |
-| `app/components/ChartsWrapper.tsx` | Client wrapper: dynamic-imports both chart components with `ssr: false` |
-| `app/components/ClientDate.tsx` | `ClientDate` + `ClientTime` client components (fix SSR hydration) |
-| `app/components/DivergenceBar.tsx` | Recharts bar chart of divergence per event |
-| `app/components/DivergenceTimeSeries.tsx` | Recharts 24h line chart with event toggles |
-| `lib/mockData.ts` | Mock events, odds conversion, time-series generation |
-
-### Features
-- **American odds → implied probability**: `p = |odds|/(|odds|+100)` for favourites; `p = 100/(odds+100)` for underdogs
-- **Divergence alert**: badges and banner fire when `|market_prob − sb_prob| > 0.05`
-- **Sortable table**: click any column header to sort ascending/descending
-- **Time series**: deterministic 24h divergence simulation; click legend to show/hide lines
-- **Bar chart**: sorted by absolute divergence; yellow bars = alert threshold exceeded
+- **Backend**: Python 3.11 + FastAPI + SQLite (standard library `sqlite3`)
+- **Frontend**: Single-page vanilla HTML/CSS/JS served by FastAPI
+- **Entry point**: `catalog_app.py`
+- **Database**: `contracts.db` (SQLite, auto-created on first run)
+- **Static files**: `static/catalog.html`
 
 ### Workflow
 ```
-next start -p 5000 -H 0.0.0.0
-```
-Serves the pre-built `.next` output. Production mode only — no file watching, no HMR, instant
-startup (~260ms). The `.next` build artifact is committed to the repo so the server can start
-without running `next build` on every restart.
-
-To rebuild after code changes, run this once via shell:
-```
-NODE_OPTIONS='--max-old-space-size=2048' next build
+uvicorn catalog_app:app --host 0.0.0.0 --port 5000
 ```
 
-**Known issues fixed:**
-- Git corrupting `.next` at checkpoint: added `.gitignore` excluding `.next/` so git never writes to build artifacts while the server is running
-- Webpack WasmHash crash: set `hashFunction: "sha256"` in webpack config + `cache: false`
-- CSS @import ordering: Google Fonts `@import url()` moved before `@import "tailwindcss"` in `globals.css`
-- SSR hydration mismatch: all `new Date()` calls moved to client-only components (`ClientDate`, `ClientTime`)
-- Recharts SSR crash: both chart components loaded via `next/dynamic` with `ssr: false`
-- Fast Refresh "module sharing" loop: all client-component imports from `mockData.ts` are either
-  `import type` (erased at build) or data threaded as props so no client chunk imports `mockData.ts`
+### Database Schema
+
+```sql
+contracts (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_name       TEXT NOT NULL,
+    market_type      TEXT NOT NULL  -- 'binary' | 'categorical'
+    oracle_source    TEXT NOT NULL,
+    settlement_rule  TEXT NOT NULL,
+    manipulation_risk TEXT NOT NULL -- 'low' | 'medium' | 'high'
+    notes            TEXT,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+### API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Serves the single-page UI |
+| GET | `/api/contracts` | List all contracts (optional `?q=` search) |
+| GET | `/api/contracts/{id}` | Get single contract details |
+| POST | `/api/contracts` | Create a new contract (JSON body) |
+| DELETE | `/api/contracts/{id}` | Delete a contract |
+
+### Seed Data
+Four contracts are seeded on first run if the database is empty:
+- Super Bowl Winner (categorical, low risk)
+- US Presidential Election Winner (categorical, medium risk)
+- Federal Reserve Rate Decision (binary, low risk)
+- Best Picture — Academy Awards (categorical, high risk)
 
 ---
 
-## Hedge Simulator (FastAPI — background)
+## Archived: ProbEdge — Sportsbook vs Markets Dashboard (Next.js)
 
-Monte Carlo sportsbook hedge calculator. Files remain in the repo but the workflow currently runs Next.js.
+Previously the active app; now deployed as a standalone production build.
+Source files remain in the repo: `app/`, `lib/`, `next.config.js`, etc.
+Build output: `tmp/nextbuild/` (gitignored).
 
-| File | Purpose |
-|------|---------|
-| `app.py` | FastAPI app + `/simulate` POST endpoint |
-| `static/index.html` | HTML/Plotly frontend |
+## Archived: Hedge Simulator (FastAPI)
 
-To run it separately: `uvicorn app:app --host 0.0.0.0 --port 5000 --reload`
-
----
-
-## Dependencies
-
-### Node.js
-- next, react, react-dom, recharts, clsx
-- tailwindcss v4, @tailwindcss/postcss, postcss, autoprefixer
-- typescript, @types/node, @types/react, @types/react-dom
-
-### Python
-- fastapi, uvicorn, numpy, plotly, streamlit
+Monte Carlo hedge calculator. Entry point: `app.py`. Static UI: `static/index.html`.
+Not currently served by the workflow.

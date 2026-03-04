@@ -54,6 +54,7 @@ NODE_OPTIONS='--max-old-space-size=2048' next build
 ```
 
 **Known issues fixed:**
+- Git corrupting `.next` at checkpoint: added `.gitignore` excluding `.next/` so git never writes to build artifacts while the server is running
 - Webpack WasmHash crash: set `hashFunction: "sha256"` in webpack config + `cache: false`
 - CSS @import ordering: Google Fonts `@import url()` moved before `@import "tailwindcss"` in `globals.css`
 - SSR hydration mismatch: all `new Date()` calls moved to client-only components (`ClientDate`, `ClientTime`)

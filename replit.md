@@ -42,11 +42,16 @@ A financial-market-style dashboard that compares sportsbook implied probabilitie
 
 ### Workflow
 ```
-NODE_OPTIONS='--max-old-space-size=2048' next build && next start -p 5000 -H 0.0.0.0
+next start -p 5000 -H 0.0.0.0
 ```
-Production mode (no file watching / HMR) — required because Replit's workspace sync daemon
-writes to project files every ~2 seconds, which triggers an infinite webpack Fast Refresh loop
-in dev mode. Production mode builds once and serves static output, eliminating the loop.
+Serves the pre-built `.next` output. Production mode only — no file watching, no HMR, instant
+startup (~260ms). The `.next` build artifact is committed to the repo so the server can start
+without running `next build` on every restart.
+
+To rebuild after code changes, run this once via shell:
+```
+NODE_OPTIONS='--max-old-space-size=2048' next build
+```
 
 **Known issues fixed:**
 - Webpack WasmHash crash: set `hashFunction: "sha256"` in webpack config + `cache: false`

@@ -350,6 +350,7 @@
 </style>
 </head>
 <body>
+<script src="/static/nav.js"></script>
 
 <header>
   <div class="logo">
@@ -650,7 +651,13 @@
   }
 
   // ---- START ----
-  load();
+  load().then(() => {
+    const pendingId = sessionStorage.getItem('openContractId');
+    if (pendingId) {
+      sessionStorage.removeItem('openContractId');
+      selectContract(parseInt(pendingId, 10));
+    }
+  });
 </script>
 </body>
 </html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Markets — ProbEdge Research</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #080d14;
+    --surface:  #0d1520;
+    --surface2: #111c2e;
+    --border:   #1a2840;
+    --border2:  #243350;
+    --text:     #c8d6e8;
+    --text-dim: #5e7a9a;
+    --text-mute:#344d6a;
+    --accent:   #3b82f6;
+    --green:    #22c55e;
+    --yellow:   #eab308;
+    --red:      #ef4444;
+    --mono:     'Courier New', Courier, monospace;
+    --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+  .page-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px 16px;
+  }
+  .page-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #e2eaf4;
+    margin-bottom: 4px;
+  }
+  .page-header p {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .stats-bar {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-cell {
+    flex: 1;
+    background: var(--surface);
+    padding: 14px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-mute);
+  }
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  .stat-value.total   { color: #7eb8f7; }
+  .stat-value.low     { color: #4ade80; }
+  .stat-value.medium  { color: #facc15; }
+  .stat-value.high    { color: #f87171; }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .filter-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+  }
+  .filter-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all .15s;
+  }
+  .filter-btn:hover { color: var(--text); border-color: var(--accent); }
+  .filter-btn.active { background: #0f1e36; color: #e2eaf4; border-color: var(--accent); }
+  .filter-sep { width: 1px; height: 20px; background: var(--border2); margin: 0 4px; }
+  .grid-container {
+    padding: 24px 32px;
+  }
+  .grid-count {
+    font-size: 11px;
+    color: var(--text-mute);
+    font-family: var(--mono);
+    margin-bottom: 16px;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+  }
+  .market-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-decoration: none;
+    color: inherit;
+  }
+  .market-card:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #dce8f5;
+    line-height: 1.35;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .badge-binary      { background: #1e3a5f; color: #7eb8f7; border: 1px solid #2a4e7a; }
+  .badge-categorical { background: #2d1e5f; color: #b09ef7; border: 1px solid #3d2a7a; }
+  .badge-low    { background: #14301a; color: #4ade80; border: 1px solid #1e4426; }
+  .badge-medium { background: #2e2000; color: #facc15; border: 1px solid #433000; }
+  .badge-high   { background: #300a0a; color: #f87171; border: 1px solid #4a1010; }
+  .card-oracle {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2px;
+  }
+  .card-date {
+    font-size: 10px;
+    color: var(--text-mute);
+    font-family: var(--mono);
+  }
+  .card-arrow {
+    font-size: 11px;
+    color: var(--text-mute);
+  }
+  .empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    color: var(--text-mute);
+    gap: 10px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<script src="/static/nav.js"></script>
+
+<div class="page-header">
+  <h1>Event Markets</h1>
+  <p>All catalogued prediction market contracts — click any card to view full details</p>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat-cell"><div class="stat-label">Total Contracts</div><div class="stat-value total" id="statTotal">—</div></div>
+  <div class="stat-cell"><div class="stat-label">Low Risk</div><div class="stat-value low" id="statLow">—</div></div>
+  <div class="stat-cell"><div class="stat-label">Medium Risk</div><div class="stat-value medium" id="statMed">—</div></div>
+  <div class="stat-cell"><div class="stat-label">High Risk</div><div class="stat-value high" id="statHigh">—</div></div>
+  <div class="stat-cell"><div class="stat-label">Binary</div><div class="stat-value total" id="statBinary">—</div></div>
+  <div class="stat-cell"><div class="stat-label">Categorical</div><div class="stat-value total" id="statCat">—</div></div>
+</div>
+
+<div class="controls">
+  <span class="filter-label">Risk</span>
+  <button class="filter-btn active" data-filter-risk="all">All</button>
+  <button class="filter-btn" data-filter-risk="low">Low</button>
+  <button class="filter-btn" data-filter-risk="medium">Medium</button>
+  <button class="filter-btn" data-filter-risk="high">High</button>
+  <div class="filter-sep"></div>
+  <span class="filter-label">Type</span>
+  <button class="filter-btn active" data-filter-type="all">All</button>
+  <button class="filter-btn" data-filter-type="binary">Binary</button>
+  <button class="filter-btn" data-filter-type="categorical">Categorical</button>
+</div>
+
+<div class="grid-container">
+  <div class="grid-count" id="gridCount"></div>
+  <div class="card-grid" id="cardGrid"></div>
+</div>
+
+<script>
+  let allContracts = [];
+  let riskFilter = 'all';
+  let typeFilter = 'all';
+
+  async function load() {
+    const res = await fetch('/api/contracts');
+    allContracts = await res.json();
+    updateStats(allContracts);
+    render();
+  }
+
+  function updateStats(contracts) {
+    document.getElementById('statTotal').textContent  = contracts.length;
+    document.getElementById('statLow').textContent    = contracts.filter(c => c.manipulation_risk === 'low').length;
+    document.getElementById('statMed').textContent    = contracts.filter(c => c.manipulation_risk === 'medium').length;
+    document.getElementById('statHigh').textContent   = contracts.filter(c => c.manipulation_risk === 'high').length;
+    document.getElementById('statBinary').textContent = contracts.filter(c => c.market_type === 'binary').length;
+    document.getElementById('statCat').textContent    = contracts.filter(c => c.market_type === 'categorical').length;
+  }
+
+  function render() {
+    let filtered = allContracts;
+    if (riskFilter !== 'all') filtered = filtered.filter(c => c.manipulation_risk === riskFilter);
+    if (typeFilter !== 'all') filtered = filtered.filter(c => c.market_type === typeFilter);
+
+    const grid = document.getElementById('cardGrid');
+    document.getElementById('gridCount').textContent = `${filtered.length} contract${filtered.length !== 1 ? 's' : ''}`;
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<div class="empty-state"><p>No contracts match the selected filters.</p></div>`;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(c => `
+      <a class="market-card" href="/contract-library#contract-${c.id}" onclick="openContract(event, ${c.id})">
+        <div class="card-top">
+          <div class="card-name">${esc(c.event_name)}</div>
+          <span class="badge badge-${c.manipulation_risk}">${riskLabel(c.manipulation_risk)}</span>
+        </div>
+        <div>
+          <span class="badge badge-${c.market_type}">${c.market_type}</span>
+        </div>
+        <div class="card-oracle">${esc(c.oracle_source)}</div>
+        <div class="card-footer">
+          <span class="card-date">${fmt(c.created_at)}</span>
+          <span class="card-arrow">View details →</span>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  function openContract(e, id) {
+    e.preventDefault();
+    sessionStorage.setItem('openContractId', id);
+    window.location.href = '/contract-library';
+  }
+
+  document.querySelectorAll('[data-filter-risk]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-filter-risk]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      riskFilter = btn.dataset.filterRisk;
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-filter-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-filter-type]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      typeFilter = btn.dataset.filterType;
+      render();
+    });
+  });
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function riskLabel(r) { return r === 'low' ? '▼ LOW' : r === 'high' ? '▲ HIGH' : '◆ MED'; }
+  function fmt(ts) {
+    if (!ts) return '—';
+    try { return new Date(ts + 'Z').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }); }
+    catch { return ts; }
+  }
+
+  load();
+</script>
+</body>
+</html>

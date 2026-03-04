@@ -1,8 +1,8 @@
 # Replit Project
 
-## Current Application: ContractDB — Prediction Market Contract Catalog
+## Current Application: ProbEdge Research — Multi-tool Prediction Market Suite
 
-A research database for cataloging event contracts used in prediction markets.
+Four integrated tools for prediction market research, accessible via a shared navigation bar.
 
 ### Stack
 - **Backend**: Python 3.11 + FastAPI + SQLite (standard library `sqlite3`)
@@ -30,6 +30,18 @@ contracts (
     created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 ```
+
+### Pages
+| Route | File | Description |
+|---|---|---|
+| `/` | — | Redirects to `/event-markets` |
+| `/event-markets` | `static/event-markets.html` | Contract card grid with risk/type filters and stats bar |
+| `/hedging-simulator` | `static/index.html` | Monte Carlo hedge simulator (10k runs, Plotly chart) |
+| `/probability-gap` | `static/probability-gap.html` | American odds → implied prob vs market price gap analysis |
+| `/contract-library` | `static/catalog.html` | Full contract catalog with search, detail view, add/delete |
+
+### Shared Navigation
+`static/nav.js` — injected into every page via `<script src="/static/nav.js">`. Renders a sticky top nav, highlights the active route, and maintains consistent styling across pages.
 
 ### API Endpoints
 | Method | Path | Description |

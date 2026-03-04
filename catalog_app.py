@@ -1,17 +1,19 @@
 import sqlite3
 import os
 from contextlib import contextmanager
-from fastapi import FastAPI, HTTPException, Query, Form
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 import uvicorn
+import numpy as np
+import plotly.graph_objects as go
 
 os.makedirs("tmp", exist_ok=True)
 DB_PATH = "tmp/contracts.db"
 
-app = FastAPI(title="Contract Catalog API")
+app = FastAPI(title="ProbEdge Research")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -122,15 +124,120 @@ class ContractIn(BaseModel):
     notes: Optional[str] = ""
 
 
+class SimulationInput(BaseModel):
+    exposure:        float = Field(..., gt=0)
+    sportsbook_prob: float = Field(..., gt=0, lt=1)
+    market_price:    float = Field(..., gt=0, lt=1)
+    liquidity:       float = Field(..., gt=0)
+
+
+class SimulationOutput(BaseModel):
+    optimal_hedge_size:  float
+    hedge_cost:          float
+    expected_profit:     float
+    worst_case_loss:     float
+    best_case_gain:      float
+    profit_percentiles:  dict
+    chart_json:          str
+    summary:             dict
+
+
 # ---------------------------------------------------------------------------
-# Routes
+# Monte Carlo simulation
+# ---------------------------------------------------------------------------
+
+def run_monte_carlo(exposure, sportsbook_prob, market_price, liquidity, n_sims=10_000):
+    rng = np.random.default_rng(seed=42)
+    unconstrained_hedge = exposure / (1.0 + market_price)
+    optimal_hedge = min(unconstrained_hedge, liquidity)
+    hedge_cost = optimal_hedge * market_price
+
+    true_prob_samples = np.clip(
+        rng.normal(loc=sportsbook_prob, scale=0.05, size=n_sims), 0.001, 0.999
+    )
+    event_occurs = rng.random(size=n_sims) < true_prob_samples
+
+    pnl = np.where(
+        event_occurs,
+        optimal_hedge - exposure - hedge_cost,
+        -hedge_cost,
+    )
+
+    return {
+        "pnl":            pnl,
+        "optimal_hedge":  optimal_hedge,
+        "hedge_cost":     hedge_cost,
+        "expected_profit": float(np.mean(pnl)),
+        "worst_case_loss": float(np.min(pnl)),
+        "best_case_gain":  float(np.max(pnl)),
+        "percentiles": {
+            "p1":  float(np.percentile(pnl, 1)),
+            "p5":  float(np.percentile(pnl, 5)),
+            "p25": float(np.percentile(pnl, 25)),
+            "p50": float(np.percentile(pnl, 50)),
+            "p75": float(np.percentile(pnl, 75)),
+            "p95": float(np.percentile(pnl, 95)),
+            "p99": float(np.percentile(pnl, 99)),
+        },
+        "event_rate": float(np.mean(event_occurs)),
+    }
+
+
+def build_chart(pnl):
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(x=pnl, nbinsx=80, marker_color="steelblue", opacity=0.85, name="Simulated P&L"))
+    mean_val = float(np.mean(pnl))
+    p5_val   = float(np.percentile(pnl, 5))
+    fig.add_vline(x=mean_val, line_dash="dash",  line_color="orange", annotation_text=f"Mean: ${mean_val:,.0f}", annotation_position="top right")
+    fig.add_vline(x=p5_val,   line_dash="dot",   line_color="red",    annotation_text=f"5th pct: ${p5_val:,.0f}", annotation_position="top left")
+    fig.update_layout(
+        title="Distribution of Hedge P&L (10,000 Simulations)",
+        xaxis_title="Profit / Loss (USD)",
+        yaxis_title="Frequency",
+        bargap=0.05,
+        template="plotly_white",
+        font=dict(family="Inter, sans-serif", size=13),
+        margin=dict(l=50, r=30, t=60, b=50),
+    )
+    return fig.to_json()
+
+
+# ---------------------------------------------------------------------------
+# Page routes
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    with open("static/catalog.html", "r") as f:
+    return RedirectResponse(url="/event-markets")
+
+
+@app.get("/event-markets", response_class=HTMLResponse)
+def event_markets():
+    with open("static/event-markets.html") as f:
         return f.read()
 
+
+@app.get("/hedging-simulator", response_class=HTMLResponse)
+def hedging_simulator():
+    with open("static/index.html") as f:
+        return f.read()
+
+
+@app.get("/probability-gap", response_class=HTMLResponse)
+def probability_gap():
+    with open("static/probability-gap.html") as f:
+        return f.read()
+
+
+@app.get("/contract-library", response_class=HTMLResponse)
+def contract_library():
+    with open("static/catalog.html") as f:
+        return f.read()
+
+
+# ---------------------------------------------------------------------------
+# API routes — contracts
+# ---------------------------------------------------------------------------
 
 @app.get("/api/contracts")
 def list_contracts(q: Optional[str] = Query(None)):
@@ -155,9 +262,7 @@ def list_contracts(q: Optional[str] = Query(None)):
 @app.get("/api/contracts/{contract_id}")
 def get_contract(contract_id: int):
     with get_db() as conn:
-        row = conn.execute(
-            "SELECT * FROM contracts WHERE id = ?", (contract_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM contracts WHERE id = ?", (contract_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Contract not found")
     return dict(row)
@@ -192,6 +297,36 @@ def delete_contract(contract_id: int):
         result = conn.execute("DELETE FROM contracts WHERE id = ?", (contract_id,))
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Contract not found")
+
+
+# ---------------------------------------------------------------------------
+# API routes — simulation
+# ---------------------------------------------------------------------------
+
+@app.post("/simulate", response_model=SimulationOutput)
+def simulate(params: SimulationInput):
+    result = run_monte_carlo(
+        exposure=params.exposure,
+        sportsbook_prob=params.sportsbook_prob,
+        market_price=params.market_price,
+        liquidity=params.liquidity,
+    )
+    chart_json = build_chart(result["pnl"])
+    summary = {
+        "simulated_event_rate":  round(result["event_rate"] * 100, 2),
+        "hedge_coverage_pct":    round(min(result["optimal_hedge"] / params.exposure, 1.0) * 100, 2),
+        "liquidity_constrained": result["optimal_hedge"] < (params.exposure / (1.0 + params.market_price)),
+    }
+    return SimulationOutput(
+        optimal_hedge_size=round(result["optimal_hedge"], 2),
+        hedge_cost=round(result["hedge_cost"], 2),
+        expected_profit=round(result["expected_profit"], 2),
+        worst_case_loss=round(result["worst_case_loss"], 2),
+        best_case_gain=round(result["best_case_gain"], 2),
+        profit_percentiles=result["percentiles"],
+        chart_json=chart_json,
+        summary=summary,
+    )
 
 
 # ---------------------------------------------------------------------------

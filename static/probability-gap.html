@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Probability Gap — ProbEdge Research</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #080d14;
+    --surface:  #0d1520;
+    --surface2: #111c2e;
+    --border:   #1a2840;
+    --border2:  #243350;
+    --text:     #c8d6e8;
+    --text-dim: #5e7a9a;
+    --text-mute:#344d6a;
+    --accent:   #3b82f6;
+    --green:    #22c55e;
+    --yellow:   #eab308;
+    --red:      #ef4444;
+    --mono:     'Courier New', Courier, monospace;
+    --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+  .page-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px 16px;
+  }
+  .page-header h1 { font-size: 18px; font-weight: 700; color: #e2eaf4; margin-bottom: 4px; }
+  .page-header p  { font-size: 12px; color: var(--text-dim); }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 32px;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 780px) { .main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .panel-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .panel-body { padding: 20px; }
+
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin-bottom: 7px;
+  }
+  .form-hint { font-size: 11px; color: var(--text-mute); margin-top: 5px; }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 9px 12px;
+    font-family: var(--mono);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text-mute); }
+
+  .input-row { display: flex; gap: 10px; }
+  .input-row .form-input { flex: 1; }
+  .implied-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--accent);
+    white-space: nowrap;
+    min-width: 90px;
+    text-align: right;
+  }
+
+  .btn-calc {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .15s;
+    margin-top: 4px;
+  }
+  .btn-calc:hover { background: #1d4ed8; }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    margin-top: 22px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .results-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    color: var(--text-mute);
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .metric {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 14px 16px;
+  }
+  .metric.full { grid-column: 1 / -1; }
+  .metric-label { font-size: 10px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; margin-bottom: 5px; }
+  .metric-value { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+  .metric-sub   { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .metric-value.up   { color: #4ade80; }
+  .metric-value.down { color: #f87171; }
+  .metric-value.neutral { color: #7eb8f7; }
+  .metric-value.warn { color: #facc15; }
+
+  .gap-bar-wrap {
+    margin: 14px 0 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    height: 28px;
+    overflow: hidden;
+    position: relative;
+  }
+  .gap-bar-book { position: absolute; top: 0; left: 0; height: 100%; background: #1d4ed8; opacity: .7; transition: width .4s; }
+  .gap-bar-market { position: absolute; top: 0; left: 0; height: 100%; background: transparent; border-right: 3px solid #4ade80; transition: width .4s; }
+  .gap-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text-mute);
+    margin-top: 4px;
+  }
+
+  .signal-box {
+    border-radius: 7px;
+    padding: 14px 16px;
+    margin-top: 4px;
+    border: 1px solid;
+  }
+  .signal-box.arb    { background: #0d2a14; border-color: #1e5a2e; }
+  .signal-box.no-arb { background: #1a1200; border-color: #433000; }
+  .signal-box.neutral-box { background: var(--surface2); border-color: var(--border2); }
+  .signal-title { font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+  .signal-box.arb    .signal-title { color: #4ade80; }
+  .signal-box.no-arb .signal-title { color: #facc15; }
+  .signal-box.neutral-box .signal-title { color: var(--text-dim); }
+  .signal-body { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+</style>
+</head>
+<body>
+<script src="/static/nav.js"></script>
+
+<div class="page-header">
+  <h1>Probability Gap Analyzer</h1>
+  <p>Compare sportsbook implied probability against prediction market prices to surface mispricing and EV opportunities</p>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <div class="panel-head">Inputs</div>
+    <div class="panel-body">
+      <div class="section-label">Sportsbook Odds</div>
+
+      <div class="form-group">
+        <label class="form-label">American Odds</label>
+        <div class="input-row">
+          <input class="form-input" id="americanOdds" type="number" placeholder="-110" value="-110">
+          <div class="implied-tag" id="impliedFromOdds">52.4%</div>
+        </div>
+        <div class="form-hint">Negative = favourite (e.g. -150). Positive = underdog (e.g. +130).</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Vig / Overround (%)</label>
+        <input class="form-input" id="vig" type="number" placeholder="4.76" value="4.76" step="0.01" min="0" max="30">
+        <div class="form-hint">Book's margin — removed to get fair probability. Leave 0 to use raw implied prob.</div>
+      </div>
+
+      <div class="section-label">Prediction Market</div>
+
+      <div class="form-group">
+        <label class="form-label">Market Price (cents per share)</label>
+        <div class="input-row">
+          <input class="form-input" id="marketPrice" type="number" placeholder="48" value="48" min="1" max="99" step="1">
+          <div class="implied-tag" id="impliedFromMarket">48.0%</div>
+        </div>
+        <div class="form-hint">Price in cents for a contract paying $1.00 on YES.</div>
+      </div>
+
+      <div class="section-label">Your Position</div>
+
+      <div class="form-group">
+        <label class="form-label">Capital to Deploy (USD)</label>
+        <input class="form-input" id="capital" type="number" placeholder="10000" value="10000" min="1">
+        <div class="form-hint">Used to calculate expected profit in dollar terms.</div>
+      </div>
+
+      <button class="btn-calc" onclick="calculate()">Analyze Gap</button>
+    </div>
+  </div>
+
+  <div class="panel" id="resultsPanel">
+    <div class="panel-head">Gap Analysis</div>
+    <div class="panel-body">
+      <div class="results-placeholder" id="placeholder">
+        <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1" opacity=".3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <p>Enter inputs and click Analyze Gap</p>
+      </div>
+      <div id="results" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function americanToImplied(odds) {
+    odds = parseFloat(odds);
+    if (isNaN(odds) || odds === 0) return NaN;
+    if (odds < 0) return (-odds) / (-odds + 100);
+    return 100 / (odds + 100);
+  }
+
+  function removeVig(implied, vigPct) {
+    const vig = parseFloat(vigPct) / 100;
+    if (vig <= 0) return implied;
+    return implied / (1 + vig);
+  }
+
+  document.getElementById('americanOdds').addEventListener('input', updateImplied);
+  document.getElementById('vig').addEventListener('input', updateImplied);
+  document.getElementById('marketPrice').addEventListener('input', updateMarketImplied);
+
+  function updateImplied() {
+    const raw = americanToImplied(document.getElementById('americanOdds').value);
+    const fair = removeVig(raw, document.getElementById('vig').value);
+    document.getElementById('impliedFromOdds').textContent = isNaN(fair) ? '—' : (fair * 100).toFixed(1) + '%';
+  }
+
+  function updateMarketImplied() {
+    const p = parseFloat(document.getElementById('marketPrice').value);
+    document.getElementById('impliedFromMarket').textContent = isNaN(p) ? '—' : p.toFixed(1) + '%';
+  }
+
+  function calculate() {
+    const rawImplied = americanToImplied(document.getElementById('americanOdds').value);
+    const vigPct     = parseFloat(document.getElementById('vig').value) || 0;
+    const fairProb   = removeVig(rawImplied, vigPct);
+    const marketProb = parseFloat(document.getElementById('marketPrice').value) / 100;
+    const capital    = parseFloat(document.getElementById('capital').value) || 10000;
+
+    if (isNaN(fairProb) || isNaN(marketProb)) {
+      alert('Please enter valid odds and market price.');
+      return;
+    }
+
+    const gap     = fairProb - marketProb;
+    const gapPct  = (gap * 100).toFixed(2);
+    const absPct  = Math.abs(gap * 100).toFixed(2);
+
+    const contracts    = Math.floor(capital / (marketProb * 100)) * 100;
+    const costBasis    = contracts * marketProb;
+    const evOnCapital  = contracts * fairProb - costBasis;
+    const roi          = (evOnCapital / costBasis) * 100;
+
+    const hasArb = gap > 0.01;
+    const hasNeg = gap < -0.01;
+
+    document.getElementById('placeholder').style.display = 'none';
+    const resultsEl = document.getElementById('results');
+    resultsEl.style.display = '';
+
+    resultsEl.innerHTML = `
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-label">Book Fair Prob (vig-adj)</div>
+          <div class="metric-value neutral">${(fairProb * 100).toFixed(2)}%</div>
+          <div class="metric-sub">Raw implied: ${(rawImplied * 100).toFixed(2)}%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Market Prob</div>
+          <div class="metric-value neutral">${(marketProb * 100).toFixed(2)}%</div>
+          <div class="metric-sub">${(marketProb * 100).toFixed(0)}¢ per share</div>
+        </div>
+        <div class="metric ${gap > 0 ? 'full' : 'full'}">
+          <div class="metric-label">Probability Gap (Book − Market)</div>
+          <div class="metric-value ${gap > 0.01 ? 'up' : gap < -0.01 ? 'down' : 'neutral'}">
+            ${gap >= 0 ? '+' : ''}${gapPct} pp
+          </div>
+          <div class="metric-sub">${gap > 0.01 ? 'Market is pricing the outcome cheaper than the book implies' : gap < -0.01 ? 'Market is pricing the outcome more expensively than the book implies' : 'Probabilities are roughly aligned — no significant edge'}</div>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:0">Probability Comparison</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">
+        Book fair prob vs market price (0 – 100%)
+      </div>
+      <div class="gap-bar-wrap">
+        <div class="gap-bar-book" style="width:${(fairProb * 100).toFixed(1)}%"></div>
+        <div class="gap-bar-market" style="width:${(marketProb * 100).toFixed(1)}%"></div>
+      </div>
+      <div class="gap-bar-labels">
+        <span>0%</span>
+        <span style="color:#7eb8f7">Book: ${(fairProb*100).toFixed(1)}%</span>
+        <span style="color:#4ade80">Market: ${(marketProb*100).toFixed(1)}%</span>
+        <span>100%</span>
+      </div>
+
+      <div class="section-label">Expected Value (Deploying ${fmtUSD(capital)})</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-label">Contracts Buyable</div>
+          <div class="metric-value neutral">${contracts.toLocaleString()}</div>
+          <div class="metric-sub">At ${(marketProb*100).toFixed(0)}¢ per contract</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Capital Deployed</div>
+          <div class="metric-value neutral">${fmtUSD(costBasis)}</div>
+          <div class="metric-sub">Upfront cost basis</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Expected Profit</div>
+          <div class="metric-value ${evOnCapital > 0 ? 'up' : 'down'}">${evOnCapital >= 0 ? '+' : ''}${fmtUSD(evOnCapital)}</div>
+          <div class="metric-sub">Based on book's fair probability</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Expected ROI</div>
+          <div class="metric-value ${roi > 0 ? 'up' : 'down'}">${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%</div>
+          <div class="metric-sub">On deployed capital</div>
+        </div>
+      </div>
+
+      <div class="signal-box ${hasArb ? 'arb' : hasNeg ? 'no-arb' : 'neutral-box'}">
+        <div class="signal-title">${hasArb ? '▲ POSITIVE EDGE DETECTED' : hasNeg ? '▼ MARKET IS PRICING HIGHER THAN BOOK' : '◆ NO SIGNIFICANT EDGE'}</div>
+        <div class="signal-body">${
+          hasArb
+            ? `The book's vig-adjusted fair probability (${(fairProb*100).toFixed(2)}%) is ${absPct} percentage points above the market price (${(marketProb*100).toFixed(2)}%). Buying YES contracts here carries positive expected value according to the sportsbook's implied probability.`
+            : hasNeg
+            ? `The market is pricing this outcome at ${(marketProb*100).toFixed(2)}%, which is ${absPct} pp above the book's fair implied probability of ${(fairProb*100).toFixed(2)}%. Buying YES contracts here is negative EV vs. the book's estimate. Consider NO contracts or sitting out.`
+            : `The book's fair probability and the market price are within 1 percentage point of each other. No statistically meaningful edge exists at current prices.`
+        }</div>
+      </div>
+    `;
+  }
+
+  function fmtUSD(n) {
+    return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  updateImplied();
+  updateMarketImplied();
+</script>
+</body>
+</html>

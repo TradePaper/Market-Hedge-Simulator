@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { enrichEvents, TIME_SERIES, EVENTS, EVENT_COLORS } from "@/lib/mockData";
 import AlertBanner from "./components/AlertBanner";
 import StatsBar from "./components/StatsBar";

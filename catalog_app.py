@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 
-DB_PATH = "contracts.db"
+os.makedirs("tmp", exist_ok=True)
+DB_PATH = "tmp/contracts.db"
 
 app = FastAPI(title="Contract Catalog API")
 app.mount("/static", StaticFiles(directory="static"), name="static")

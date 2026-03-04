@@ -20,6 +20,11 @@ __pycache__/
 .venv/
 venv/
 
+# databases
+*.db
+*.db-shm
+*.db-wal
+
 # misc
 .DS_Store
 *.log

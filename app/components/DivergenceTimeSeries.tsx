@@ -10,11 +10,13 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { EVENTS, EVENT_COLORS, TimePoint } from "@/lib/mockData";
+import type { TimePoint, SportEvent } from "@/lib/mockData";
 import { useState } from "react";
 
 interface Props {
   data: TimePoint[];
+  events: SportEvent[];
+  eventColors: Record<string, string>;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -34,7 +36,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function DivergenceTimeSeries({ data }: Props) {
+export default function DivergenceTimeSeries({ data, events, eventColors }: Props) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {
@@ -57,7 +59,7 @@ export default function DivergenceTimeSeries({ data }: Props) {
       </div>
 
       <div className="flex flex-wrap gap-2 px-4 pt-3">
-        {EVENTS.map((ev) => (
+        {events.map((ev) => (
           <button
             key={ev.id}
             onClick={() => toggle(ev.id)}
@@ -66,7 +68,7 @@ export default function DivergenceTimeSeries({ data }: Props) {
           >
             <span
               className="w-2.5 h-2.5 rounded-full inline-block"
-              style={{ backgroundColor: EVENT_COLORS[ev.id] }}
+              style={{ backgroundColor: eventColors[ev.id] }}
             />
             <span className="text-gray-400">{ev.event.split(" vs ")[0]}</span>
           </button>
@@ -98,12 +100,12 @@ export default function DivergenceTimeSeries({ data }: Props) {
             <ReferenceLine y={0.05} stroke="#d29922" strokeDasharray="4 4" strokeWidth={1} />
             <ReferenceLine y={-0.05} stroke="#d29922" strokeDasharray="4 4" strokeWidth={1} />
 
-            {EVENTS.map((ev) => (
+            {events.map((ev) => (
               <Line
                 key={ev.id}
                 type="monotone"
                 dataKey={ev.id}
-                stroke={EVENT_COLORS[ev.id]}
+                stroke={eventColors[ev.id]}
                 strokeWidth={1.5}
                 dot={false}
                 activeDot={{ r: 4 }}

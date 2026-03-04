@@ -42,8 +42,19 @@ A financial-market-style dashboard that compares sportsbook implied probabilitie
 
 ### Workflow
 ```
-next dev -p 5000 -H 0.0.0.0
+NODE_OPTIONS='--max-old-space-size=2048' next build && next start -p 5000 -H 0.0.0.0
 ```
+Production mode (no file watching / HMR) — required because Replit's workspace sync daemon
+writes to project files every ~2 seconds, which triggers an infinite webpack Fast Refresh loop
+in dev mode. Production mode builds once and serves static output, eliminating the loop.
+
+**Known issues fixed:**
+- Webpack WasmHash crash: set `hashFunction: "sha256"` in webpack config + `cache: false`
+- CSS @import ordering: Google Fonts `@import url()` moved before `@import "tailwindcss"` in `globals.css`
+- SSR hydration mismatch: all `new Date()` calls moved to client-only components (`ClientDate`, `ClientTime`)
+- Recharts SSR crash: both chart components loaded via `next/dynamic` with `ssr: false`
+- Fast Refresh "module sharing" loop: all client-component imports from `mockData.ts` are either
+  `import type` (erased at build) or data threaded as props so no client chunk imports `mockData.ts`
 
 ---
 

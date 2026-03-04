@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { EnrichedEvent } from "@/lib/mockData";
+import type { EnrichedEvent } from "@/lib/mockData";
 
 interface Props {
   events: EnrichedEvent[];

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { EnrichedEvent, TimePoint } from "@/lib/mockData";
+import type { EnrichedEvent, TimePoint, SportEvent } from "@/lib/mockData";
 
 const DivergenceBar = dynamic(() => import("./DivergenceBar"), {
   ssr: false,
@@ -34,9 +34,11 @@ const DivergenceTimeSeries = dynamic(() => import("./DivergenceTimeSeries"), {
 interface Props {
   events: EnrichedEvent[];
   timeSeries: TimePoint[];
+  allEvents: SportEvent[];
+  eventColors: Record<string, string>;
 }
 
-export default function ChartsWrapper({ events, timeSeries }: Props) {
+export default function ChartsWrapper({ events, timeSeries, allEvents, eventColors }: Props) {
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -75,7 +77,7 @@ export default function ChartsWrapper({ events, timeSeries }: Props) {
         </div>
       </div>
 
-      <DivergenceTimeSeries data={timeSeries} />
+      <DivergenceTimeSeries data={timeSeries} events={allEvents} eventColors={eventColors} />
     </>
   );
 }

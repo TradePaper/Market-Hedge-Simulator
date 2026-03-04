@@ -1,6 +1,6 @@
 "use client";
 
-import { EnrichedEvent } from "@/lib/mockData";
+import type { EnrichedEvent } from "@/lib/mockData";
 import { useState } from "react";
 
 interface Props {

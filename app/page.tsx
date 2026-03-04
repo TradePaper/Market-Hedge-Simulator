@@ -1,4 +1,4 @@
-import { enrichEvents, TIME_SERIES } from "@/lib/mockData";
+import { enrichEvents, TIME_SERIES, EVENTS, EVENT_COLORS } from "@/lib/mockData";
 import AlertBanner from "./components/AlertBanner";
 import StatsBar from "./components/StatsBar";
 import ProbabilityTable from "./components/ProbabilityTable";
@@ -52,7 +52,12 @@ export default function Dashboard() {
         <AlertBanner alerts={alerts} />
         <StatsBar events={events} />
         <ProbabilityTable events={events} />
-        <ChartsWrapper events={events} timeSeries={TIME_SERIES} />
+        <ChartsWrapper
+          events={events}
+          timeSeries={TIME_SERIES}
+          allEvents={EVENTS}
+          eventColors={EVENT_COLORS}
+        />
 
         <footer className="text-center text-xs text-gray-600 py-2">
           ProbEdge · Simulated data only · Not financial advice

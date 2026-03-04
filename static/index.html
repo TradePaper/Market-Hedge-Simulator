@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sportsbook Hedge Simulator</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #2d3748;
+      padding-bottom: 1.25rem;
+    }
+
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #63b3ed;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      margin-top: 0.4rem;
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #a0aec0;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.25rem;
+    }
+
+    .field {
+      margin-bottom: 1.1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-bottom: 0.35rem;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      background: #2d3748;
+      border: 1px solid #4a5568;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="number"]:focus {
+      border-color: #63b3ed;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #718096;
+      margin-top: 0.2rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background: #3182ce;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    button:hover { background: #2b6cb0; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .results-area { display: none; }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.9rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .metric {
+      background: #2d3748;
+      border-radius: 10px;
+      padding: 1rem;
+      border-left: 3px solid #63b3ed;
+    }
+
+    .metric.positive { border-left-color: #48bb78; }
+    .metric.negative { border-left-color: #fc8181; }
+    .metric.neutral  { border-left-color: #63b3ed; }
+    .metric.warning  { border-left-color: #f6ad55; }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.35rem;
+    }
+
+    .metric-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .metric-sub {
+      font-size: 0.72rem;
+      color: #718096;
+      margin-top: 0.2rem;
+    }
+
+    #chart {
+      width: 100%;
+      height: 380px;
+    }
+
+    .percentile-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+    }
+
+    .percentile-table th {
+      text-align: left;
+      color: #718096;
+      font-weight: 500;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    .percentile-table td {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid #1a202c;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+    }
+
+    .tag-warn { background: #744210; color: #f6ad55; }
+    .tag-ok   { background: #1c4532; color: #68d391; }
+
+    #error-box {
+      display: none;
+      background: #742a2a;
+      border: 1px solid #fc8181;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #fed7d7;
+      font-size: 0.875rem;
+      margin-top: 0.75rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Sportsbook Hedge Simulator</h1>
+    <p>Monte Carlo simulation (10,000 runs) for optimal risk hedging via prediction markets</p>
+  </header>
+
+  <div class="layout">
+    <!-- Input Panel -->
+    <div class="card">
+      <h2>Parameters</h2>
+      <form id="sim-form">
+        <div class="field">
+          <label>Sportsbook Exposure (USD)</label>
+          <input type="number" id="exposure" value="100000" min="1" step="1" required />
+          <div class="hint">Total payout owed if event occurs</div>
+        </div>
+        <div class="field">
+          <label>Sportsbook Implied Probability</label>
+          <input type="number" id="sportsbook_prob" value="0.55" min="0.01" max="0.99" step="0.01" required />
+          <div class="hint">Your book's estimate of event probability (0–1)</div>
+        </div>
+        <div class="field">
+          <label>Prediction Market Price</label>
+          <input type="number" id="market_price" value="0.52" min="0.01" max="0.99" step="0.01" required />
+          <div class="hint">Cost per contract paying $1 if event occurs (0–1)</div>
+        </div>
+        <div class="field">
+          <label>Prediction Market Liquidity (USD)</label>
+          <input type="number" id="liquidity" value="80000" min="1" step="1" required />
+          <div class="hint">Maximum hedge size available in the market</div>
+        </div>
+        <div id="error-box"></div>
+        <button type="submit" id="run-btn">Run Simulation</button>
+      </form>
+    </div>
+
+    <!-- Results Panel -->
+    <div>
+      <div id="results-area" class="results-area">
+        <div class="card" style="margin-bottom:1.25rem;">
+          <h2>Key Metrics</h2>
+          <div class="metrics-grid" id="metrics-grid"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:1.25rem;">
+          <h2>Profit Distribution</h2>
+          <div id="chart"></div>
+        </div>
+
+        <div class="card">
+          <h2>Profit Percentiles</h2>
+          <table class="percentile-table" id="pct-table">
+            <thead>
+              <tr>
+                <th>Percentile</th>
+                <th>P&amp;L (USD)</th>
+                <th>Interpretation</th>
+              </tr>
+            </thead>
+            <tbody id="pct-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('sim-form');
+  const btn  = document.getElementById('run-btn');
+  const errBox = document.getElementById('error-box');
+
+  const PCT_LABELS = {
+    p1:  ['1st',  'Extreme tail loss'],
+    p5:  ['5th',  'Value at Risk (95% CVaR boundary)'],
+    p25: ['25th', 'Poor outcome'],
+    p50: ['50th', 'Median outcome'],
+    p75: ['75th', 'Good outcome'],
+    p95: ['95th', 'Strong outcome'],
+    p99: ['99th', 'Best-case tail'],
+  };
+
+  function fmt(n) {
+    return (n >= 0 ? '+' : '') + '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  function fmtUSD(n) {
+    return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  function colorClass(val) {
+    if (val > 0) return 'positive';
+    if (val < 0) return 'negative';
+    return 'neutral';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errBox.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Running 10,000 simulations…';
+
+    const payload = {
+      exposure:        parseFloat(document.getElementById('exposure').value),
+      sportsbook_prob: parseFloat(document.getElementById('sportsbook_prob').value),
+      market_price:    parseFloat(document.getElementById('market_price').value),
+      liquidity:       parseFloat(document.getElementById('liquidity').value),
+    };
+
+    try {
+      const res = await fetch('/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Simulation failed');
+      }
+
+      const data = await res.json();
+      renderResults(data, payload);
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run Simulation';
+    }
+  });
+
+  function renderResults(data, params) {
+    const area = document.getElementById('results-area');
+    area.style.display = 'block';
+
+    // Metrics
+    const grid = document.getElementById('metrics-grid');
+    const constrained = data.summary.liquidity_constrained;
+    grid.innerHTML = `
+      <div class="metric neutral">
+        <div class="metric-label">Optimal Hedge Size</div>
+        <div class="metric-value">${fmtUSD(data.optimal_hedge_size)}</div>
+        <div class="metric-sub">${data.summary.hedge_coverage_pct}% of exposure covered
+          ${constrained ? '<span class="tag tag-warn">Liquidity limited</span>' : '<span class="tag tag-ok">Fully hedged</span>'}
+        </div>
+      </div>
+      <div class="metric negative">
+        <div class="metric-label">Hedge Cost</div>
+        <div class="metric-value">${fmtUSD(data.hedge_cost)}</div>
+        <div class="metric-sub">Upfront premium paid</div>
+      </div>
+      <div class="metric ${colorClass(data.expected_profit)}">
+        <div class="metric-label">Expected Profit</div>
+        <div class="metric-value">${fmt(data.expected_profit)}</div>
+        <div class="metric-sub">Mean across all simulations</div>
+      </div>
+      <div class="metric negative">
+        <div class="metric-label">Worst Case Loss</div>
+        <div class="metric-value">${fmt(data.worst_case_loss)}</div>
+        <div class="metric-sub">Minimum P&amp;L observed</div>
+      </div>
+      <div class="metric positive">
+        <div class="metric-label">Best Case Gain</div>
+        <div class="metric-value">${fmt(data.best_case_gain)}</div>
+        <div class="metric-sub">Maximum P&amp;L observed</div>
+      </div>
+      <div class="metric neutral">
+        <div class="metric-label">Simulated Event Rate</div>
+        <div class="metric-value">${data.summary.simulated_event_rate}%</div>
+        <div class="metric-sub">Actual rate across simulations</div>
+      </div>
+    `;
+
+    // Percentile table
+    const tbody = document.getElementById('pct-body');
+    tbody.innerHTML = '';
+    for (const [key, val] of Object.entries(data.profit_percentiles)) {
+      const [label, interp] = PCT_LABELS[key] || [key, ''];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${label}</td>
+        <td style="color:${val>=0?'#68d391':'#fc8181'};font-weight:600;">${fmt(val)}</td>
+        <td style="color:#718096;">${interp}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    // Chart
+    const chartData = JSON.parse(data.chart_json);
+    chartData.layout.paper_bgcolor = '#1a202c';
+    chartData.layout.plot_bgcolor  = '#1a202c';
+    chartData.layout.font          = { color: '#a0aec0', family: 'Inter, sans-serif', size: 12 };
+    chartData.layout.xaxis = { ...chartData.layout.xaxis, gridcolor: '#2d3748', zerolinecolor: '#4a5568' };
+    chartData.layout.yaxis = { ...chartData.layout.yaxis, gridcolor: '#2d3748' };
+
+    Plotly.react('chart', chartData.data, chartData.layout, { responsive: true, displayModeBar: false });
+  }
+</script>
+</body>
+</html>

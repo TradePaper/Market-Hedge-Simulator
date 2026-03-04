@@ -1,56 +1,69 @@
-# Sportsbook Hedge Simulator
+# Sports Probability Platform
 
-A FastAPI web application that simulates how a sportsbook can hedge risk using prediction markets, powered by Monte Carlo simulation (10,000 runs).
+Two tools for analysing and hedging sports event risk:
 
-## Architecture
+1. **Hedge Simulator** — FastAPI + Monte Carlo engine (Python, port 5000 when active)
+2. **ProbEdge Dashboard** — Next.js probability comparison dashboard (currently running on port 5000)
 
-- **Backend**: FastAPI (`app.py`) served via Uvicorn on port 5000
-- **Frontend**: Single-page HTML (`static/index.html`) with Plotly for charting
-- **Simulation**: NumPy-based Monte Carlo engine in `app.py`
+---
 
-## Key Files
+## ProbEdge Dashboard (Next.js — active)
+
+A financial-market-style dashboard that compares sportsbook implied probabilities against prediction market prices for 8 live sports events.
+
+### Stack
+- **Framework**: Next.js 14 (App Router, TypeScript)
+- **Styling**: Tailwind CSS v4 + `@tailwindcss/postcss`
+- **Charts**: Recharts
+- **Data**: Mock/simulated in `lib/mockData.ts`
+
+### Key Files
 
 | File | Purpose |
 |------|---------|
-| `app.py` | FastAPI app, simulation logic, `/simulate` POST endpoint |
-| `static/index.html` | HTML/JS frontend with parameter inputs and Plotly chart |
+| `app/page.tsx` | Main dashboard page (server component) |
+| `app/layout.tsx` | Root layout + metadata |
+| `app/globals.css` | Tailwind v4 import + theme variables |
+| `app/components/AlertBanner.tsx` | Dismissable yellow alert for >5% divergence |
+| `app/components/StatsBar.tsx` | 4 headline stat cards |
+| `app/components/ProbabilityTable.tsx` | Sortable 8-event table with probability bars |
+| `app/components/DivergenceBar.tsx` | Recharts bar chart of divergence per event |
+| `app/components/DivergenceTimeSeries.tsx` | Recharts 24h line chart with event toggles |
+| `lib/mockData.ts` | Mock events, odds conversion, time-series generation |
 
-## API Endpoint
+### Features
+- **American odds → implied probability**: `p = |odds|/(|odds|+100)` for favourites; `p = 100/(odds+100)` for underdogs
+- **Divergence alert**: badges and banner fire when `|market_prob − sb_prob| > 0.05`
+- **Sortable table**: click any column header to sort ascending/descending
+- **Time series**: deterministic 24h divergence simulation; click legend to show/hide lines
+- **Bar chart**: sorted by absolute divergence; yellow bars = alert threshold exceeded
 
-`POST /simulate`
-
-**Input (JSON):**
-- `exposure` — Sportsbook payout liability in USD
-- `sportsbook_prob` — Implied probability from the book (0–1)
-- `market_price` — Prediction market contract price (0–1)
-- `liquidity` — Max hedge size available in the market (USD)
-
-**Output (JSON):**
-- `optimal_hedge_size` — Variance-minimising hedge, capped at liquidity
-- `hedge_cost` — Upfront premium: `hedge_size × market_price`
-- `expected_profit` — Mean P&L across 10,000 simulations
-- `worst_case_loss` — Minimum simulated P&L
-- `best_case_gain` — Maximum simulated P&L
-- `profit_percentiles` — p1/p5/p25/p50/p75/p95/p99
-- `chart_json` — Plotly figure JSON for the histogram
-- `summary` — Coverage %, liquidity constraint flag, simulated event rate
-
-## Simulation Assumptions
-
-- Sportsbook pays `exposure` when event occurs
-- Prediction market pays back `hedge_size` when event occurs
-- Hedge cost = `hedge_size × market_price` (paid upfront regardless)
-- True event probability is sampled with ±5 pp Gaussian noise around `sportsbook_prob`
-- Optimal hedge formula: `hedge_size = exposure / (1 + market_price)` (variance-minimising), constrained by `liquidity`
-
-## Workflow
-
+### Workflow
 ```
-uvicorn app:app --host 0.0.0.0 --port 5000 --reload
+next dev -p 5000 -H 0.0.0.0
 ```
+
+---
+
+## Hedge Simulator (FastAPI — background)
+
+Monte Carlo sportsbook hedge calculator. Files remain in the repo but the workflow currently runs Next.js.
+
+| File | Purpose |
+|------|---------|
+| `app.py` | FastAPI app + `/simulate` POST endpoint |
+| `static/index.html` | HTML/Plotly frontend |
+
+To run it separately: `uvicorn app:app --host 0.0.0.0 --port 5000 --reload`
+
+---
 
 ## Dependencies
 
-- fastapi, uvicorn — web server
-- numpy — Monte Carlo simulation
-- plotly — chart serialisation
+### Node.js
+- next, react, react-dom, recharts, clsx
+- tailwindcss v4, @tailwindcss/postcss, postcss, autoprefixer
+- typescript, @types/node, @types/react, @types/react-dom
+
+### Python
+- fastapi, uvicorn, numpy, plotly, streamlit

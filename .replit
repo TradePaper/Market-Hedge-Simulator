@@ -1,10 +1,11 @@
 modules = ["python-3.11", "nodejs-20"]
 [deployment]
-deploymentTarget = "autoscale"
-run = ["streamlit", "run", "app.py", "--server.port", "5000"]
+deploymentTarget = "vm"
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--worker-class=uvicorn.workers.UvicornWorker", "--workers=2", "catalog_app:app"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["libxcrypt"]
 
 [workflows]
 runButton = "Project"
@@ -33,3 +34,7 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3000

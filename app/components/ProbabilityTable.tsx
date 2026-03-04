@@ -3,6 +3,7 @@
 import { EnrichedEvent } from "@/lib/mockData";
 import { useState } from "react";
 import clsx from "clsx";
+import { ClientTime } from "./ClientDate";
 
 interface Props {
   events: EnrichedEvent[];
@@ -81,7 +82,7 @@ export default function ProbabilityTable({ events }: Props) {
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         <span className="text-sm font-semibold text-gray-300">Live Probability Comparison</span>
         <span className="ml-auto text-xs text-gray-500 font-mono">
-          Updated: {new Date().toLocaleTimeString()}
+          Updated: <ClientTime />
         </span>
       </div>
       <div className="overflow-x-auto">

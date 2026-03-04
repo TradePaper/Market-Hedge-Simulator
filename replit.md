@@ -27,6 +27,8 @@ A financial-market-style dashboard that compares sportsbook implied probabilitie
 | `app/components/AlertBanner.tsx` | Dismissable yellow alert for >5% divergence |
 | `app/components/StatsBar.tsx` | 4 headline stat cards |
 | `app/components/ProbabilityTable.tsx` | Sortable 8-event table with probability bars |
+| `app/components/ChartsWrapper.tsx` | Client wrapper: dynamic-imports both chart components with `ssr: false` |
+| `app/components/ClientDate.tsx` | `ClientDate` + `ClientTime` client components (fix SSR hydration) |
 | `app/components/DivergenceBar.tsx` | Recharts bar chart of divergence per event |
 | `app/components/DivergenceTimeSeries.tsx` | Recharts 24h line chart with event toggles |
 | `lib/mockData.ts` | Mock events, odds conversion, time-series generation |

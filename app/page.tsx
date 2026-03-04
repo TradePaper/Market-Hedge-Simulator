@@ -2,8 +2,8 @@ import { enrichEvents, TIME_SERIES } from "@/lib/mockData";
 import AlertBanner from "./components/AlertBanner";
 import StatsBar from "./components/StatsBar";
 import ProbabilityTable from "./components/ProbabilityTable";
-import DivergenceBar from "./components/DivergenceBar";
-import DivergenceTimeSeries from "./components/DivergenceTimeSeries";
+import ChartsWrapper from "./components/ChartsWrapper";
+import { ClientDate } from "./components/ClientDate";
 
 export default function Dashboard() {
   const events = enrichEvents();
@@ -43,9 +43,7 @@ export default function Dashboard() {
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               Live
             </div>
-            <span className="text-xs text-gray-600 font-mono hidden sm:block">
-              {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-            </span>
+            <ClientDate className="text-xs text-gray-600 font-mono hidden sm:block" />
           </div>
         </div>
       </header>
@@ -54,44 +52,7 @@ export default function Dashboard() {
         <AlertBanner alerts={alerts} />
         <StatsBar events={events} />
         <ProbabilityTable events={events} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <DivergenceBar events={events} />
-          <div className="bg-[#161b22] border border-[#21262d] rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-gray-300 mb-1">How to Read This Dashboard</h2>
-            <p className="text-xs text-gray-500 mb-3">
-              Divergence is calculated as{" "}
-              <span className="font-mono text-gray-300">Market Prob − Sportsbook Implied Prob</span>.
-              Positive values mean the market assigns a higher probability than the sportsbook.
-            </p>
-            <div className="space-y-2">
-              {[
-                { color: "#3fb950", label: "Green bar",  desc: "Market probability higher than sportsbook (potential underlay)" },
-                { color: "#f85149", label: "Red bar",    desc: "Market probability lower than sportsbook (potential overlay)" },
-                { color: "#d29922", label: "Yellow bar", desc: "Divergence exceeds 5% threshold — arbitrage alert" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-start gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-sm mt-0.5 shrink-0" style={{ backgroundColor: item.color }} />
-                  <p className="text-xs text-gray-400">
-                    <span className="text-gray-300 font-medium">{item.label}: </span>
-                    {item.desc}
-                  </p>
-                </div>
-              ))}
-              <div className="mt-3 pt-3 border-t border-[#21262d]">
-                <p className="text-xs text-gray-500">
-                  American odds are converted using:{" "}
-                  <span className="font-mono text-gray-300">p = |odds| / (|odds| + 100)</span>{" "}
-                  for favourites and{" "}
-                  <span className="font-mono text-gray-300">p = 100 / (odds + 100)</span>{" "}
-                  for underdogs.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DivergenceTimeSeries data={TIME_SERIES} />
+        <ChartsWrapper events={events} timeSeries={TIME_SERIES} />
 
         <footer className="text-center text-xs text-gray-600 py-2">
           ProbEdge · Simulated data only · Not financial advice

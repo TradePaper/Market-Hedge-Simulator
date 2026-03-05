@@ -16,37 +16,40 @@ A multi-tool suite for analyzing sportsbook vs prediction market pricing, runnin
 
 ## Architecture
 
-```
-Browser (vanilla JS)
-    │
-    ├── /hedging-simulator   ──► POST /simulate ──► simulator.py (Monte Carlo engine)
-    │
-    └── /probability-gap     ──► GET /api/markets?source=...
-                                        │
-                              ┌─────────▼──────────┐
-                              │   CachedProvider   │  TTL: 30s
-                              │   (in-memory)      │  health: ok/degraded/down
-                              └─────────┬──────────┘
-                                        │  fallback chain
-                              ┌─────────▼──────────┐
-                              │  selected provider  │
-                              │  mock | polymarket  │
-                              │  kalshi             │
-                              └─────────┬──────────┘
-                                        │  on error
-                              ┌─────────▼──────────┐
-                              │    MockProvider     │  always available
-                              └────────────────────┘
+```mermaid
+flowchart LR
+    UI["Dashboard UI"] --> SEL["Provider Selector (mock / polymarket / kalshi)"]
+    SEL --> PM["PolymarketProvider"]
+    SEL --> KA["KalshiProvider"]
+    SEL --> MK["MockProvider"]
 
-Provider interface (providers/base.py):
-  get_markets(limit) → List[MarketData]
-  get_prices(event_id) → Optional[MarketData]
-  get_timestamp() → str
+    PM --> NORM["Normalized Market Schema"]
+    KA --> NORM
+    MK --> NORM
 
-Normalized schema (MarketData):
-  event_id · title · outcomes · price · implied_prob
-  source · updated_at · volume · end_date
+    NORM --> CACHE["In-memory Cache (TTL)"]
+    CACHE --> HEALTH["Health Monitor (ok/degraded/down)"]
+    HEALTH --> UI
+
+    PM -. on error/timeout .-> FB["Fallback Manager"]
+    KA -. on error/timeout .-> FB
+    FB --> MK
+    FB --> UI
+
+    UI --> SIM["Monte Carlo Engine"]
+    SIM --> METRICS["EV, p5, p50, p95, max loss, break-even"]
+    METRICS --> UI
+
+    UI --> ANALYTICS["PostHog Events"]
 ```
+
+Provider interface (`providers/base.py`):
+- `get_markets(limit)` → `List[MarketData]`
+- `get_prices(event_id)` → `Optional[MarketData]`
+- `get_timestamp()` → `str`
+
+Normalized schema (`MarketData`):
+`event_id` · `title` · `outcomes` · `price` · `implied_prob` · `source` · `updated_at` · `volume` · `end_date`
 
 ## Outputs (Hedge Simulator)
 - Expected value (EV)

@@ -322,6 +322,51 @@ def simulate_v12_curve(params: RiskCurveIn):
     }
 
 
+@app.get("/api/risk-transfer")
+def get_risk_transfer(
+    strategy: str  = Query("external_hedge", pattern="^(external_hedge|internal_reprice|hybrid)$"),
+    objective: str = Query("min_cvar",       pattern="^(min_cvar|min_max_loss|max_sharpe|target_ev_min_risk)$"),
+    liabilities: str = Query("500,1000,2000,4000,8000"),
+    stake: float = Query(1000.0, gt=0),
+    american_odds: int = Query(-110),
+    true_win_prob: float = Query(0.52, gt=0, lt=1),
+    fill_probability: float = Query(0.85, gt=0, le=1),
+    slippage_bps: float = Query(20.0, ge=0),
+    fee_bps: float = Query(10.0, ge=0),
+    latency_bps: float = Query(5.0, ge=0),
+    n_paths: int = Query(3000, ge=100, le=50000),
+    seed: Optional[str] = Query(None),
+):
+    try:
+        sorted_liabilities = sorted(float(x.strip()) for x in liabilities.split(",") if x.strip())
+    except ValueError:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=422, detail="liabilities must be a comma-separated list of numbers")
+
+    inp = SimulationInputV12(
+        stake=stake,
+        american_odds=american_odds,
+        true_win_prob=true_win_prob,
+        hedge_fraction=0.5,
+        fill_probability=fill_probability,
+        slippage_bps=slippage_bps,
+        fee_bps=fee_bps,
+        latency_bps=latency_bps,
+        n_paths=n_paths,
+        seed=seed,
+        liability=0.0,
+        strategy=strategy,
+        objective=objective,
+    )
+    curve = build_risk_transfer_curve(inp, sorted_liabilities, strategy)
+    return {
+        "strategy": curve.strategy,
+        "objective": objective,
+        "liabilities_requested": len(sorted_liabilities),
+        "points": [dataclasses.asdict(pt) for pt in curve.points],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Market providers
 # ---------------------------------------------------------------------------

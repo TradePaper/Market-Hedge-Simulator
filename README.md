@@ -115,13 +115,15 @@ Coverage includes:
 - hedge cap enforcement (liquidity-bounded effective notional)
 - impact_factor monotonicity on EV
 - risk transfer curve non-decreasing hedge ratio under `min_cvar`
-- CVaR tail mean correctness
+- CVaR tail mean correctness (not percentile proxy)
+- v12 determinism across all three strategy modes
+- strategy comparison with shared seed
 
 ## Local Development
 
 ```bash
 git clone <repo-url>
-pip install fastapi uvicorn numpy requests
+pip install fastapi uvicorn numpy requests matplotlib
 uvicorn catalog_app:app --host 0.0.0.0 --port 5000
 ```
 
@@ -144,5 +146,6 @@ DELETE /api/contracts/{id}
 POST /simulate
 POST /simulate/v12
 POST /simulate/v12/curve
+GET  /api/risk-transfer?strategy=&objective=&liabilities=&stake=&american_odds=&true_win_prob=&fill_probability=&n_paths=&seed=
 GET  /status
 ```

@@ -86,15 +86,56 @@ All providers map into one shared schema before UI/metrics consume data:
 
 **Objectives:** `min_cvar`, `min_max_loss`, `max_sharpe`, `target_ev_min_risk`
 
+## Reliability Guarantees
+
+### Deterministic replay
+
+Every v1.2 API response includes a `scenario` object:
+
+```json
+"scenario": {
+  "seed": "my-run-42",
+  "n_paths": 3000,
+  "fill_probability": 0.85,
+  "liquidity": null,
+  "timestamp_utc": "2026-03-05T18:00:00+00:00"
+}
+```
+
+Passing the same `seed`, `n_paths`, and `fill_probability` back to the endpoint will reproduce the exact same paths and metrics. Results are bit-for-bit identical across reruns.
+
+### Provider fallback and circuit breaker
+
+Requests to Polymarket or Kalshi follow this chain:
+
+1. Serve from in-memory cache if TTL has not elapsed
+2. Fetch fresh data from the upstream provider
+3. On error: increment consecutive error counter and serve stale cache
+4. After **3 consecutive errors**: open circuit — upstream is skipped entirely and stale cache is served immediately, with no further outbound calls
+5. Backoff is exponential (10 s → 20 s → 40 s → 80 s → 120 s cap)
+6. Circuit resets automatically on the first successful fetch
+
+Provider health is visible at `/api/providers/health` and reflected in the footer status dots on every page.
+
+### Stale-cache behavior
+
+- Data served from cache that is older than 5 minutes is flagged `stale: true` in the health response
+- The Probability Gap Dashboard shows a warning indicator when stale data is being displayed
+- Stale data is always preferred over returning an error to the caller
+
 ## Analytics
 
 Set `POSTHOG_KEY` in Replit Secrets to enable event ingestion.
 
-Tracked events:
-- `run_started`
-- `run_completed`
-- `provider_selected`
-- `provider_fallback_triggered`
+Client-side events:
+- `run_started` — hedging simulator form submit
+- `run_completed` — successful simulation response
+- `provider_selected` — probability gap provider switch
+- `provider_fallback_triggered` — fallback to mock served
+
+Server-side events (fired from API layer, independent of browser):
+- `v12_simulation_run` — every `/simulate/v12` call with strategy, objective, n_paths, and `distribution_collapsed` flag
+- `risk_transfer_curve_requested` — every `/api/risk-transfer` call with strategy, objective, and `any_collapsed` flag
 
 ## Environment Variables
 
@@ -112,6 +153,7 @@ Coverage includes:
 - provider mapping (Polymarket/Kalshi)
 - timeout fallback behavior
 - stale-data health transitions
+- circuit breaker: opens at threshold, skips inner while open, resets on success, backoff growth
 - hedge cap enforcement (liquidity-bounded effective notional)
 - impact_factor monotonicity on EV
 - risk transfer curve non-decreasing hedge ratio under `min_cvar`

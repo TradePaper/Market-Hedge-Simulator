@@ -201,6 +201,39 @@
   .signal-box.no-arb .signal-title { color: #facc15; }
   .signal-box.neutral-box .signal-title { color: var(--text-dim); }
   .signal-body { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+
+  .src-btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .12s, color .12s;
+  }
+  .src-btn:hover { background: var(--surface2); color: var(--text); }
+  .src-btn.active { background: var(--accent); color: #fff; }
+
+  .feed-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: border-color .12s;
+    font-size: 12px;
+  }
+  .feed-row:hover { border-color: var(--accent); }
+  .feed-title { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed-prob  { font-family: var(--mono); color: var(--accent); font-size: 13px; font-weight: 700; min-width: 46px; text-align: right; }
+  .feed-src   { font-size: 10px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .6px; min-width: 60px; text-align: right; }
+  .feed-loading { color: var(--text-mute); font-size: 12px; padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -209,6 +242,22 @@
 <div class="page-header">
   <h1>Probability Gap Dashboard</h1>
   <p>Compare sportsbook implied probability against prediction market prices to surface mispricing and EV opportunities</p>
+</div>
+
+<div style="max-width:1100px;margin:16px auto 0;padding:0 32px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);">Data Source</span>
+  <div id="sourceToggle" style="display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px;">
+    <button class="src-btn active" data-src="mock"       onclick="switchSource('mock')">Mock</button>
+    <button class="src-btn"        data-src="polymarket" onclick="switchSource('polymarket')">Polymarket</button>
+    <button class="src-btn"        data-src="kalshi"     onclick="switchSource('kalshi')">Kalshi</button>
+  </div>
+  <span id="sourceStatus" style="font-size:11px;color:var(--text-dim);margin-left:4px;"></span>
+  <span id="fallbackBadge" style="display:none;font-size:10px;background:#2a1a00;border:1px solid #5a3500;color:#facc15;border-radius:4px;padding:2px 7px;font-weight:700;">FALLBACK</span>
+</div>
+
+<div id="liveFeedWrap" style="max-width:1100px;margin:12px auto 0;padding:0 32px;">
+  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px;">Live Markets — click a row to pre-fill inputs</div>
+  <div id="liveFeed" style="display:flex;flex-direction:column;gap:4px;max-height:190px;overflow-y:auto;"></div>
 </div>
 
 <div class="main">
@@ -405,6 +454,71 @@
 
   updateImplied();
   updateMarketImplied();
+
+  // ---------------------------------------------------------------------------
+  // Live market feed
+  // ---------------------------------------------------------------------------
+
+  let currentSource = 'mock';
+
+  function switchSource(src) {
+    currentSource = src;
+    document.querySelectorAll('.src-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.src === src);
+    });
+    loadFeed(src);
+  }
+
+  async function loadFeed(src) {
+    const feed = document.getElementById('liveFeed');
+    const status = document.getElementById('sourceStatus');
+    const badge  = document.getElementById('fallbackBadge');
+    feed.innerHTML = '<div class="feed-loading">Loading…</div>';
+    status.textContent = '';
+    badge.style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/markets?source=${src}&limit=20`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.fallback) {
+        badge.style.display = '';
+      }
+
+      const ts = data.updated_at ? new Date(data.updated_at).toLocaleTimeString() : '';
+      status.textContent = ts ? `Updated ${ts}` : '';
+
+      if (!data.markets || data.markets.length === 0) {
+        feed.innerHTML = '<div class="feed-loading">No markets available for this source.</div>';
+        return;
+      }
+
+      feed.innerHTML = data.markets.map(m => {
+        const probPct = (m.implied_prob * 100).toFixed(0);
+        return `<div class="feed-row" onclick="prefill(${m.implied_prob})">
+          <span class="feed-title">${escHtml(m.title)}</span>
+          <span class="feed-prob">${probPct}¢</span>
+          <span class="feed-src">${escHtml(m.source)}</span>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      feed.innerHTML = `<div class="feed-loading" style="color:var(--red)">Failed to load markets: ${err.message}</div>`;
+    }
+  }
+
+  function prefill(impliedProb) {
+    const cents = Math.round(impliedProb * 100);
+    document.getElementById('marketPrice').value = cents;
+    updateMarketImplied();
+    document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadFeed('mock');
 </script>
 </body>
 </html>

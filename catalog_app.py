@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import dataclasses
 from contextlib import contextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,6 +10,7 @@ from typing import Optional
 import uvicorn
 
 from simulator import SimInput, run_simulation
+from providers import MockProvider, PolymarketProvider, KalshiProvider, CachedProvider
 
 os.makedirs("tmp", exist_ok=True)
 DB_PATH = "tmp/contracts.db"
@@ -206,6 +208,58 @@ def delete_contract(contract_id: int):
 @app.post("/simulate")
 def simulate(params: SimInput):
     return run_simulation(params)
+
+
+# ---------------------------------------------------------------------------
+# Market providers
+# ---------------------------------------------------------------------------
+
+_PROVIDERS = {
+    "mock":       CachedProvider(MockProvider(),        ttl=30),
+    "polymarket": CachedProvider(PolymarketProvider(),  ttl=30),
+    "kalshi":     CachedProvider(KalshiProvider(),      ttl=30),
+}
+
+
+@app.get("/api/markets")
+def list_markets(
+    source: str = Query("mock", pattern="^(mock|polymarket|kalshi)$"),
+    limit: int  = Query(20, ge=1, le=100),
+):
+    provider = _PROVIDERS[source]
+    try:
+        markets = provider.get_markets(limit=limit)
+    except Exception as exc:
+        fallback = _PROVIDERS["mock"].get_markets(limit=limit)
+        return {
+            "source": "mock",
+            "fallback": True,
+            "error": str(exc),
+            "updated_at": _PROVIDERS["mock"].get_timestamp(),
+            "markets": [dataclasses.asdict(m) for m in fallback],
+        }
+    return {
+        "source": source,
+        "fallback": False,
+        "error": None,
+        "updated_at": provider.get_timestamp(),
+        "markets": [dataclasses.asdict(m) for m in markets],
+    }
+
+
+@app.get("/api/markets/{event_id}")
+def get_market(
+    event_id: str,
+    source: str = Query("mock", pattern="^(mock|polymarket|kalshi)$"),
+):
+    provider = _PROVIDERS[source]
+    try:
+        market = provider.get_prices(event_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Provider error: {exc}")
+    if market is None:
+        raise HTTPException(status_code=404, detail="Market not found")
+    return dataclasses.asdict(market)
 
 
 # ---------------------------------------------------------------------------

@@ -51,4 +51,5 @@ This tool helps visualize how fill risk, slippage, and latency can change expect
 # example
 npm install
 npm run dev
+npm test
 ```

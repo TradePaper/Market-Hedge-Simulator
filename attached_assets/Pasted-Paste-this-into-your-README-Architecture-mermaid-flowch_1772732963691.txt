@@ -1,18 +1,4 @@
-# ProbEdge — Prediction Market Research Suite
-
-A multi-tool suite for analyzing sportsbook vs prediction market pricing, running Monte Carlo hedge simulations, and exploring event contract risk.
-
-## Live Demo
-[market-hedge-simulator.replit.app](https://market-hedge-simulator.replit.app)
-
-## Tools
-
-| Page | What it does |
-|---|---|
-| Event Markets Intelligence | Contract grid with risk/type filters |
-| Sportsbook Hedge Simulator | Monte Carlo simulation with seeded RNG, presets, shareable URLs |
-| Probability Gap Dashboard | Odds → implied prob vs live market price, gap + EV analysis |
-| Event Contract Library | Full contract catalog with search, detail view, add/delete |
+Paste this into your README.
 
 ## Architecture
 
@@ -94,30 +80,5 @@ Coverage includes:
 - timeout fallback behavior
 - stale-data health transitions
 
-## Local Development
-
-```bash
-git clone <repo-url>
-pip install fastapi uvicorn numpy requests
-uvicorn catalog_app:app --host 0.0.0.0 --port 5000
-```
-
-Run tests:
-```bash
-python3 -m pytest tests/ -v
-```
-
-## API
-
-```
-GET  /api/markets?source=mock|polymarket|kalshi&limit=N
-GET  /api/markets/{event_id}?source=...
-GET  /api/providers/health
-GET  /api/config
-GET  /api/contracts
-POST /api/contracts
-GET  /api/contracts/{id}
-DELETE /api/contracts/{id}
-POST /simulate
-GET  /status
-```
+Then commit/push with:
+`docs: add architecture, provider layer, analytics, and env setup`

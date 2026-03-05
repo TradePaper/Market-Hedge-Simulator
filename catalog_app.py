@@ -11,6 +11,9 @@ import uvicorn
 
 from simulator import SimInput, run_simulation
 from providers import MockProvider, PolymarketProvider, KalshiProvider, CachedProvider
+from core.types_v12 import SimulationInputV12, LiquidityModel, InternalRepriceModel
+from core.strategies import simulate_strategy
+from core.optimizer import optimize_hedge_ratio, build_risk_transfer_curve
 
 os.makedirs("tmp", exist_ok=True)
 DB_PATH = "tmp/contracts.db"
@@ -208,6 +211,112 @@ def delete_contract(contract_id: int):
 @app.post("/simulate")
 def simulate(params: SimInput):
     return run_simulation(params)
+
+
+class LiquidityModelIn(BaseModel):
+    available_liquidity: float
+    participation_rate: float
+    impact_factor: float
+    depth_exponent: float = 1.0
+
+
+class InternalRepriceModelIn(BaseModel):
+    enabled: bool
+    odds_move_sensitivity: float
+    handle_retention_decay: float
+    min_prob: float = 0.01
+    max_prob: float = 0.99
+
+
+class SimulateV12In(BaseModel):
+    stake: float
+    american_odds: int
+    true_win_prob: float
+    hedge_fraction: float = 0.5
+    fill_probability: float = 1.0
+    slippage_bps: float = 20.0
+    fee_bps: float = 10.0
+    latency_bps: float = 5.0
+    n_paths: int = 5000
+    seed: Optional[str] = None
+    liability: float = 0.0
+    strategy: str = "external_hedge"
+    objective: str = "min_cvar"
+    optimize: bool = False
+    liquidity: Optional[LiquidityModelIn] = None
+    internal_reprice: Optional[InternalRepriceModelIn] = None
+
+    class Config:
+        extra = "ignore"
+
+
+class RiskCurveIn(BaseModel):
+    base: SimulateV12In
+    liabilities: list
+    strategy: str = "external_hedge"
+
+
+@app.post("/simulate/v12")
+def simulate_v12(params: SimulateV12In):
+    liq = (
+        LiquidityModel(**params.liquidity.dict())
+        if params.liquidity else None
+    )
+    reprice = (
+        InternalRepriceModel(**params.internal_reprice.dict())
+        if params.internal_reprice else None
+    )
+    inp = SimulationInputV12(
+        stake=params.stake,
+        american_odds=params.american_odds,
+        true_win_prob=params.true_win_prob,
+        hedge_fraction=params.hedge_fraction,
+        fill_probability=params.fill_probability,
+        slippage_bps=params.slippage_bps,
+        fee_bps=params.fee_bps,
+        latency_bps=params.latency_bps,
+        n_paths=params.n_paths,
+        seed=params.seed,
+        liability=params.liability,
+        strategy=params.strategy,
+        objective=params.objective,
+        liquidity=liq,
+        internal_reprice=reprice,
+    )
+    if params.optimize:
+        metrics = optimize_hedge_ratio(inp)
+    else:
+        metrics = simulate_strategy(inp)
+    return dataclasses.asdict(metrics)
+
+
+@app.post("/simulate/v12/curve")
+def simulate_v12_curve(params: RiskCurveIn):
+    base = params.base
+    liq = LiquidityModel(**base.liquidity.dict()) if base.liquidity else None
+    reprice = InternalRepriceModel(**base.internal_reprice.dict()) if base.internal_reprice else None
+    inp = SimulationInputV12(
+        stake=base.stake,
+        american_odds=base.american_odds,
+        true_win_prob=base.true_win_prob,
+        hedge_fraction=base.hedge_fraction,
+        fill_probability=base.fill_probability,
+        slippage_bps=base.slippage_bps,
+        fee_bps=base.fee_bps,
+        latency_bps=base.latency_bps,
+        n_paths=base.n_paths,
+        seed=base.seed,
+        liability=base.liability,
+        strategy=base.strategy,
+        objective=base.objective,
+        liquidity=liq,
+        internal_reprice=reprice,
+    )
+    curve = build_risk_transfer_curve(inp, [float(x) for x in params.liabilities], params.strategy)
+    return {
+        "strategy": curve.strategy,
+        "points": [dataclasses.asdict(pt) for pt in curve.points],
+    }
 
 
 # ---------------------------------------------------------------------------

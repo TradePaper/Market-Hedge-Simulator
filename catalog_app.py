@@ -4,11 +4,11 @@ from contextlib import contextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
 import uvicorn
-import numpy as np
-import plotly.graph_objects as go
+
+from simulator import SimInput, run_simulation
 
 os.makedirs("tmp", exist_ok=True)
 DB_PATH = "tmp/contracts.db"
@@ -47,61 +47,42 @@ def init_db():
                 created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
         existing = conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0]
         if existing == 0:
             seed = [
                 (
-                    "Super Bowl Winner",
-                    "categorical",
+                    "Super Bowl Winner", "categorical",
                     "NFL official results (NFL.com)",
                     "Resolves YES for the team that wins Super Bowl LIX per official NFL records. "
                     "Categorical: one outcome per team. Settlement within 24 hours of final whistle.",
                     "low",
                     "Outcome determined by on-field play with thousands of independent observers. "
-                    "Extremely difficult to manipulate. Major liquidity on Polymarket and Kalshi. "
-                    "Single event per season — no replay risk.",
+                    "Extremely difficult to manipulate. Major liquidity on Polymarket and Kalshi.",
                 ),
                 (
-                    "US Presidential Election Winner",
-                    "categorical",
+                    "US Presidential Election Winner", "categorical",
                     "Associated Press & major network calls; certified state results",
                     "Resolves to the candidate who receives a majority of Electoral College votes "
-                    "as certified by Congress on Jan 6. Categorical market with one share per candidate. "
-                    "Extended settlement window to accommodate certification.",
+                    "as certified by Congress on Jan 6.",
                     "medium",
                     "High-profile event with robust oracle sources. Medium risk due to potential "
-                    "certification disputes (cf. Jan 2021) and litigation delays. Markets have "
-                    "historically traded at compressed odds near resolution. Watch for regulatory "
-                    "intervention — CFTC has previously challenged election contracts.",
+                    "certification disputes and litigation delays.",
                 ),
                 (
-                    "Federal Reserve Rate Decision",
-                    "binary",
+                    "Federal Reserve Rate Decision", "binary",
                     "FOMC official statement (federalreserve.gov)",
                     "Resolves YES if the federal funds target rate is raised by ≥25 bps at the "
-                    "scheduled FOMC meeting. Resolves NO otherwise (hold or cut). "
-                    "Oracle: official Fed press release published same day as decision.",
+                    "scheduled FOMC meeting. Resolves NO otherwise.",
                     "low",
-                    "Binary contract with unambiguous settlement criteria. Oracle is the Fed itself — "
-                    "no third-party interpretation needed. Rate decision is public and simultaneous. "
-                    "Tight correlation with CME FedWatch tool provides natural price anchor. "
-                    "Low manipulation risk: no individual actor can move Fed policy.",
+                    "Binary contract with unambiguous settlement criteria. Oracle is the Fed itself.",
                 ),
                 (
-                    "Best Picture — Academy Awards",
-                    "categorical",
+                    "Best Picture — Academy Awards", "categorical",
                     "Academy of Motion Picture Arts and Sciences official announcement",
-                    "Resolves to the film named Best Picture at the Academy Awards ceremony. "
-                    "Categorical: one share per nominated film. Settlement at announcement, "
-                    "typically late February/early March. No retroactive resolution.",
+                    "Resolves to the film named Best Picture at the Academy Awards ceremony.",
                     "high",
-                    "High manipulation risk relative to other contracts. Voting body is ~10,000 "
-                    "members — small enough that coordinated campaigns or early ballot leaks can "
-                    "meaningfully shift true probabilities before markets reflect them. "
-                    "Historical precedent: PricewaterhouseCoopers envelope incident (2017) shows "
-                    "procedural error risk. Insider trading window between ballot close and ceremony "
-                    "is a known concern. Recommend wide bid-ask spreads until final week.",
+                    "High manipulation risk. Voting body is ~10,000 members — small enough that "
+                    "coordinated campaigns can shift probabilities.",
                 ),
             ]
             conn.executemany(
@@ -112,7 +93,7 @@ def init_db():
 
 
 # ---------------------------------------------------------------------------
-# Models
+# Contract model
 # ---------------------------------------------------------------------------
 
 class ContractIn(BaseModel):
@@ -122,84 +103,6 @@ class ContractIn(BaseModel):
     settlement_rule: str
     manipulation_risk: str
     notes: Optional[str] = ""
-
-
-class SimulationInput(BaseModel):
-    exposure:        float = Field(..., gt=0)
-    sportsbook_prob: float = Field(..., gt=0, lt=1)
-    market_price:    float = Field(..., gt=0, lt=1)
-    liquidity:       float = Field(..., gt=0)
-
-
-class SimulationOutput(BaseModel):
-    optimal_hedge_size:  float
-    hedge_cost:          float
-    expected_profit:     float
-    worst_case_loss:     float
-    best_case_gain:      float
-    profit_percentiles:  dict
-    chart_json:          str
-    summary:             dict
-
-
-# ---------------------------------------------------------------------------
-# Monte Carlo simulation
-# ---------------------------------------------------------------------------
-
-def run_monte_carlo(exposure, sportsbook_prob, market_price, liquidity, n_sims=10_000):
-    rng = np.random.default_rng(seed=42)
-    unconstrained_hedge = exposure / (1.0 + market_price)
-    optimal_hedge = min(unconstrained_hedge, liquidity)
-    hedge_cost = optimal_hedge * market_price
-
-    true_prob_samples = np.clip(
-        rng.normal(loc=sportsbook_prob, scale=0.05, size=n_sims), 0.001, 0.999
-    )
-    event_occurs = rng.random(size=n_sims) < true_prob_samples
-
-    pnl = np.where(
-        event_occurs,
-        optimal_hedge - exposure - hedge_cost,
-        -hedge_cost,
-    )
-
-    return {
-        "pnl":            pnl,
-        "optimal_hedge":  optimal_hedge,
-        "hedge_cost":     hedge_cost,
-        "expected_profit": float(np.mean(pnl)),
-        "worst_case_loss": float(np.min(pnl)),
-        "best_case_gain":  float(np.max(pnl)),
-        "percentiles": {
-            "p1":  float(np.percentile(pnl, 1)),
-            "p5":  float(np.percentile(pnl, 5)),
-            "p25": float(np.percentile(pnl, 25)),
-            "p50": float(np.percentile(pnl, 50)),
-            "p75": float(np.percentile(pnl, 75)),
-            "p95": float(np.percentile(pnl, 95)),
-            "p99": float(np.percentile(pnl, 99)),
-        },
-        "event_rate": float(np.mean(event_occurs)),
-    }
-
-
-def build_chart(pnl):
-    fig = go.Figure()
-    fig.add_trace(go.Histogram(x=pnl, nbinsx=80, marker_color="steelblue", opacity=0.85, name="Simulated P&L"))
-    mean_val = float(np.mean(pnl))
-    p5_val   = float(np.percentile(pnl, 5))
-    fig.add_vline(x=mean_val, line_dash="dash",  line_color="orange", annotation_text=f"Mean: ${mean_val:,.0f}", annotation_position="top right")
-    fig.add_vline(x=p5_val,   line_dash="dot",   line_color="red",    annotation_text=f"5th pct: ${p5_val:,.0f}", annotation_position="top left")
-    fig.update_layout(
-        title="Distribution of Hedge P&L (10,000 Simulations)",
-        xaxis_title="Profit / Loss (USD)",
-        yaxis_title="Frequency",
-        bargap=0.05,
-        template="plotly_white",
-        font=dict(family="Inter, sans-serif", size=13),
-        margin=dict(l=50, r=30, t=60, b=50),
-    )
-    return fig.to_json()
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +139,7 @@ def contract_library():
 
 
 # ---------------------------------------------------------------------------
-# API routes — contracts
+# API — contracts
 # ---------------------------------------------------------------------------
 
 @app.get("/api/contracts")
@@ -253,8 +156,8 @@ def list_contracts(q: Optional[str] = Query(None)):
             ).fetchall()
         else:
             rows = conn.execute(
-                """SELECT id, event_name, market_type, oracle_source, manipulation_risk, created_at
-                   FROM contracts ORDER BY id DESC"""
+                "SELECT id, event_name, market_type, oracle_source, manipulation_risk, created_at "
+                "FROM contracts ORDER BY id DESC"
             ).fetchall()
     return [dict(r) for r in rows]
 
@@ -279,12 +182,9 @@ def create_contract(contract: ContractIn):
             "INSERT INTO contracts (event_name, market_type, oracle_source, settlement_rule, manipulation_risk, notes) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (
-                contract.event_name.strip(),
-                contract.market_type,
-                contract.oracle_source.strip(),
-                contract.settlement_rule.strip(),
-                contract.manipulation_risk,
-                (contract.notes or "").strip(),
+                contract.event_name.strip(), contract.market_type,
+                contract.oracle_source.strip(), contract.settlement_rule.strip(),
+                contract.manipulation_risk, (contract.notes or "").strip(),
             ),
         )
         new_id = cur.lastrowid
@@ -300,33 +200,12 @@ def delete_contract(contract_id: int):
 
 
 # ---------------------------------------------------------------------------
-# API routes — simulation
+# API — simulation
 # ---------------------------------------------------------------------------
 
-@app.post("/simulate", response_model=SimulationOutput)
-def simulate(params: SimulationInput):
-    result = run_monte_carlo(
-        exposure=params.exposure,
-        sportsbook_prob=params.sportsbook_prob,
-        market_price=params.market_price,
-        liquidity=params.liquidity,
-    )
-    chart_json = build_chart(result["pnl"])
-    summary = {
-        "simulated_event_rate":  round(result["event_rate"] * 100, 2),
-        "hedge_coverage_pct":    round(min(result["optimal_hedge"] / params.exposure, 1.0) * 100, 2),
-        "liquidity_constrained": result["optimal_hedge"] < (params.exposure / (1.0 + params.market_price)),
-    }
-    return SimulationOutput(
-        optimal_hedge_size=round(result["optimal_hedge"], 2),
-        hedge_cost=round(result["hedge_cost"], 2),
-        expected_profit=round(result["expected_profit"], 2),
-        worst_case_loss=round(result["worst_case_loss"], 2),
-        best_case_gain=round(result["best_case_gain"], 2),
-        profit_percentiles=result["percentiles"],
-        chart_json=chart_json,
-        summary=summary,
-    )
+@app.post("/simulate")
+def simulate(params: SimInput):
+    return run_simulation(params)
 
 
 # ---------------------------------------------------------------------------

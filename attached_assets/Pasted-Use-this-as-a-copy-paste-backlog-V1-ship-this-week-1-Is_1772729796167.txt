@@ -1,0 +1,84 @@
+Use this as a copy/paste backlog.
+
+**V1 (ship this week)**
+
+1. **Issue: Build deterministic simulation engine**
+- Scope: implement Monte Carlo engine with seeded RNG and core formulas.
+- Acceptance criteria:
+  - Input model includes `stake`, `americanOdds`, `trueWinProb`, `hedgeFraction`, `fillProbability`, `slippageBps`, `feeBps`, `latencyBps`, `nPaths`, `seed`.
+  - Output includes `ev`, `p5`, `p50`, `p95`, `maxLoss`, `breakEvenWinRate`, `paths`.
+  - Deterministic mode returns identical outputs for same seed and inputs.
+  - Handles `nPaths=10,000` in acceptable UI time.
+
+2. **Issue: Add validation + error handling**
+- Scope: validate all user inputs before run.
+- Acceptance criteria:
+  - Reject invalid probabilities outside `[0,1]`.
+  - Reject `stake <= 0`, `americanOdds = 0`, out-of-range `nPaths`.
+  - Inline field errors displayed; simulation cannot run when invalid.
+  - Default values auto-filled on first load.
+
+3. **Issue: Implement preset strategies**
+- Scope: add `Conservative`, `Neutral`, `Aggressive` presets.
+- Acceptance criteria:
+  - One-click preset applies full input set.
+  - Presets are visible and labeled with short descriptions.
+  - User can modify fields after preset selection.
+
+4. **Issue: Build results cards + P/L chart**
+- Scope: show key metrics and histogram/distribution chart.
+- Acceptance criteria:
+  - Cards for `EV`, `p5`, `p50`, `p95`, `maxLoss`, `breakEvenWinRate`.
+  - Chart renders path distribution clearly on desktop/mobile.
+  - Currency and percentage formatting are consistent.
+
+5. **Issue: Add assumptions panel**
+- Scope: explain model limitations and interpretation.
+- Acceptance criteria:
+  - Plain-English “What this includes” and “What this excludes.”
+  - Visible near results.
+  - Mentions simplified hedge-leg approximation.
+
+6. **Issue: Add reproducibility (run ID + URL params)**
+- Scope: allow sharing exact runs.
+- Acceptance criteria:
+  - Generated run ID shown after each run.
+  - Inputs (including seed) can be encoded in URL query params.
+  - Opening shared URL restores form state exactly.
+
+7. **Issue: Add core test suite**
+- Scope: math correctness + regression protection.
+- Acceptance criteria:
+  - Test: `hedgeFraction=0` matches analytical sportsbook EV.
+  - Test: fixed seed returns stable percentiles.
+  - Test: higher `slippageBps` lowers EV monotonically.
+  - Tests pass in Replit before deploy.
+
+8. **Issue: Deploy + feedback capture**
+- Scope: production-ready release with basic feedback loop.
+- Acceptance criteria:
+  - App deployed and accessible at public URL.
+  - “Send feedback” link/form available.
+  - Basic analytics events: `run_started`, `run_completed`, `preset_selected`.
+
+**V1.1 (after V1 is live)**
+
+9. **Issue: Probability Gap Dashboard (mock data first)**
+- Acceptance criteria:
+  - Shows sportsbook implied probability vs market implied probability.
+  - Displays gap/edge metric.
+  - Data source switch supports mock now, real providers later.
+
+10. **Issue: Provider adapter layer**
+- Acceptance criteria:
+  - Create adapters: `polymarket`, `kalshi`, `odds`.
+  - Common interface: `getMarkets()`, `getPrices()`, `getTimestamp()`.
+  - App runs with mock provider if live API unavailable.
+
+11. **Issue: Event Contract Library**
+- Acceptance criteria:
+  - Searchable/filterable contract table.
+  - Columns: event, venue, last price, implied probability, timestamp.
+  - Works with mock provider and adapter abstraction.
+
+If you want, I can turn this into a ready-to-paste `GitHub Projects` board format next (`Todo/In Progress/Done` with priorities).

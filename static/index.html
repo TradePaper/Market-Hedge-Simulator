@@ -1,426 +1,980 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sportsbook Hedge Simulator — ProbEdge</title>
-  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sportsbook Hedge Simulator — ProbEdge</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #080d14;
+    --surface:  #0d1520;
+    --surface2: #111c2e;
+    --border:   #1a2840;
+    --border2:  #243350;
+    --text:     #c8d6e8;
+    --text-dim: #5e7a9a;
+    --text-mute:#344d6a;
+    --accent:   #3b82f6;
+    --green:    #22c55e;
+    --yellow:   #eab308;
+    --red:      #ef4444;
+    --mono:     'Courier New', Courier, monospace;
+    --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-    body {
-      font-family: 'Inter', 'Segoe UI', sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      padding: 2rem 1rem;
-    }
+  /* ---- PAGE HEADER ---- */
+  .page-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .page-header-left h1 { font-size: 17px; font-weight: 700; color: #e2eaf4; margin-bottom: 3px; }
+  .page-header-left p  { font-size: 11px; color: var(--text-dim); }
+  .feedback-link {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    padding: 5px 12px;
+    transition: all .15s;
+    cursor: pointer;
+    background: none;
+    font-family: var(--sans);
+  }
+  .feedback-link:hover { color: var(--text); border-color: var(--accent); }
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
+  /* ---- PRESETS ---- */
+  .presets-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .presets-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-mute);
+    margin-right: 4px;
+  }
+  .preset-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all .15s;
+    text-align: left;
+  }
+  .preset-btn:hover { border-color: var(--accent); background: #0f1e36; }
+  .preset-btn.active { border-color: var(--accent); background: #0f1e36; }
+  .preset-name { font-size: 12px; font-weight: 700; color: #dce8f5; }
+  .preset-desc { font-size: 10px; color: var(--text-dim); }
 
-    header {
-      margin-bottom: 2rem;
-      border-bottom: 1px solid #2d3748;
-      padding-bottom: 1.25rem;
-    }
+  /* ---- MAIN LAYOUT ---- */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  @media (max-width: 900px) { .main { flex-direction: column; overflow: visible; } }
 
-    header h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      color: #63b3ed;
-      letter-spacing: -0.5px;
-    }
+  /* ---- FORM PANEL ---- */
+  .form-panel {
+    width: 340px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  @media (max-width: 900px) { .form-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } }
 
-    header p {
-      margin-top: 0.4rem;
-      color: #94a3b8;
-      font-size: 0.9rem;
-    }
+  .form-body { padding: 20px; flex: 1; }
 
-    .layout {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      gap: 1.5rem;
-      align-items: start;
-    }
+  .form-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+    margin-top: 20px;
+  }
+  .form-section-label:first-child { margin-top: 0; }
 
-    @media (max-width: 800px) {
-      .layout { grid-template-columns: 1fr; }
-    }
+  .form-group { margin-bottom: 14px; position: relative; }
+  .form-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin-bottom: 6px;
+  }
+  .form-label-hint { font-size: 10px; color: var(--text-mute); text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 11px;
+    font-family: var(--mono);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input.invalid { border-color: var(--red) !important; }
+  .form-input::placeholder { color: var(--text-mute); font-family: var(--sans); }
+  .field-error {
+    font-size: 10px;
+    color: var(--red);
+    margin-top: 4px;
+    display: none;
+  }
+  .field-error.visible { display: block; }
 
-    .card {
-      background: #1a202c;
-      border: 1px solid #2d3748;
-      border-radius: 12px;
-      padding: 1.5rem;
-    }
+  .input-row { display: flex; gap: 8px; }
+  .input-row .form-input { flex: 1; }
+  .input-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--accent);
+    white-space: nowrap;
+    min-width: 70px;
+    text-align: right;
+    flex-shrink: 0;
+  }
 
-    .card h2 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #a0aec0;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 1.25rem;
-    }
+  .form-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .btn-run {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--sans);
+    letter-spacing: .3px;
+    transition: background .15s, opacity .15s;
+  }
+  .btn-run:hover:not(:disabled) { background: #1d4ed8; }
+  .btn-run:disabled { opacity: .55; cursor: not-allowed; }
 
-    .field {
-      margin-bottom: 1.1rem;
-    }
+  /* ---- RESULTS PANEL ---- */
+  .results-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+  }
 
-    label {
-      display: block;
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: #94a3b8;
-      margin-bottom: 0.35rem;
-    }
+  .results-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 400px;
+    gap: 12px;
+    color: var(--text-mute);
+  }
+  .results-placeholder svg { opacity: .2; }
+  .results-placeholder p { font-size: 13px; }
 
-    input[type="number"] {
-      width: 100%;
-      padding: 0.55rem 0.75rem;
-      background: #2d3748;
-      border: 1px solid #4a5568;
-      border-radius: 8px;
-      color: #e2e8f0;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
+  /* run id */
+  .run-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .run-id-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .run-id-value { color: var(--accent); font-weight: 700; letter-spacing: 1px; }
+  .btn-copy {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all .15s;
+  }
+  .btn-copy:hover { color: var(--text); border-color: var(--accent); }
+  .btn-copy.copied { color: #4ade80; border-color: #1e5a2e; }
 
-    input[type="number"]:focus {
-      border-color: #63b3ed;
-    }
+  /* metric cards */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 700px) { .metric-grid { grid-template-columns: repeat(2, 1fr); } }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--border2);
+  }
+  .metric-card.positive { border-left-color: #22c55e; }
+  .metric-card.negative { border-left-color: #ef4444; }
+  .metric-card.neutral  { border-left-color: #3b82f6; }
+  .metric-card.warn     { border-left-color: #eab308; }
+  .metric-label { font-size: 10px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; margin-bottom: 5px; }
+  .metric-value { font-size: 20px; font-weight: 700; font-family: var(--mono); color: #e2eaf4; }
+  .metric-sub   { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
 
-    .hint {
-      font-size: 0.75rem;
-      color: #718096;
-      margin-top: 0.2rem;
-    }
+  /* chart */
+  #chart { width: 100%; height: 340px; margin-bottom: 20px; }
 
-    button {
-      width: 100%;
-      padding: 0.75rem;
-      background: #3182ce;
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 600;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 0.5rem;
-      transition: background 0.2s, opacity 0.2s;
-    }
+  /* section label */
+  .results-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+    margin-top: 24px;
+  }
 
-    button:hover { background: #2b6cb0; }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
+  /* assumptions */
+  .assumptions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .assumptions-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+  }
+  .assumptions-head:hover { background: var(--surface2); }
+  .assumptions-body { padding: 16px; display: none; }
+  .assumptions-body.open { display: block; }
+  .assumptions-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 600px) { .assumptions-cols { grid-template-columns: 1fr; } }
+  .assumptions-subtitle { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .assumptions-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .assumptions-list li {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    padding-left: 14px;
+    position: relative;
+  }
+  .assumptions-list li::before { content: '·'; position: absolute; left: 0; color: var(--text-mute); }
 
-    .results-area { display: none; }
+  /* spinner */
+  .spinner {
+    display: inline-block;
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.9rem;
-      margin-bottom: 1.25rem;
-    }
+  /* error banner */
+  .error-banner {
+    background: #2a0a0a;
+    border: 1px solid #5a1010;
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: #f87171;
+    font-size: 12px;
+    margin-bottom: 16px;
+    display: none;
+  }
 
-    .metric {
-      background: #2d3748;
-      border-radius: 10px;
-      padding: 1rem;
-      border-left: 3px solid #63b3ed;
-    }
-
-    .metric.positive { border-left-color: #48bb78; }
-    .metric.negative { border-left-color: #fc8181; }
-    .metric.neutral  { border-left-color: #63b3ed; }
-    .metric.warning  { border-left-color: #f6ad55; }
-
-    .metric-label {
-      font-size: 0.75rem;
-      color: #718096;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      margin-bottom: 0.35rem;
-    }
-
-    .metric-value {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: #e2e8f0;
-    }
-
-    .metric-sub {
-      font-size: 0.72rem;
-      color: #718096;
-      margin-top: 0.2rem;
-    }
-
-    #chart {
-      width: 100%;
-      height: 380px;
-    }
-
-    .percentile-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-      margin-top: 0.75rem;
-    }
-
-    .percentile-table th {
-      text-align: left;
-      color: #718096;
-      font-weight: 500;
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid #2d3748;
-    }
-
-    .percentile-table td {
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid #1a202c;
-    }
-
-    .tag {
-      display: inline-block;
-      font-size: 0.7rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 999px;
-      margin-left: 0.4rem;
-      vertical-align: middle;
-    }
-
-    .tag-warn { background: #744210; color: #f6ad55; }
-    .tag-ok   { background: #1c4532; color: #68d391; }
-
-    #error-box {
-      display: none;
-      background: #742a2a;
-      border: 1px solid #fc8181;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      color: #fed7d7;
-      font-size: 0.875rem;
-      margin-top: 0.75rem;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.4rem;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  /* feedback modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+  }
+  .modal h3 { font-size: 15px; color: #e2eaf4; margin-bottom: 8px; }
+  .modal p  { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; }
+  .btn-modal-close {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+  .btn-modal-close:hover { color: var(--text); }
+  .btn-modal-action {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    text-decoration: none;
+    display: inline-block;
+  }
+</style>
 </head>
 <body>
 <script src="/static/nav.js"></script>
-<div class="container">
-  <header>
-    <h1>Sportsbook Hedge Simulator</h1>
-    <p>Monte Carlo simulation (10,000 runs) for optimal risk hedging via prediction markets</p>
-  </header>
 
-  <div class="layout">
-    <!-- Input Panel -->
-    <div class="card">
-      <h2>Parameters</h2>
-      <form id="sim-form">
-        <div class="field">
-          <label>Sportsbook Exposure (USD)</label>
-          <input type="number" id="exposure" value="100000" min="1" step="1" required />
-          <div class="hint">Total payout owed if event occurs</div>
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Sportsbook Hedge Simulator</h1>
+    <p>Monte Carlo engine — 10,000 paths — seeded RNG for reproducibility</p>
+  </div>
+  <button class="feedback-link" onclick="openFeedback()">Send Feedback</button>
+</div>
+
+<!-- PRESETS -->
+<div class="presets-bar">
+  <span class="presets-label">Presets</span>
+  <button class="preset-btn" id="preset-conservative" onclick="applyPreset('conservative')">
+    <span class="preset-name">Conservative</span>
+    <span class="preset-desc">Small stake · high fill · low friction</span>
+  </button>
+  <button class="preset-btn" id="preset-neutral" onclick="applyPreset('neutral')">
+    <span class="preset-name">Neutral</span>
+    <span class="preset-desc">Balanced hedge · typical friction</span>
+  </button>
+  <button class="preset-btn" id="preset-aggressive" onclick="applyPreset('aggressive')">
+    <span class="preset-name">Aggressive</span>
+    <span class="preset-desc">Large stake · partial hedge · high friction</span>
+  </button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- FORM PANEL -->
+  <div class="form-panel">
+    <div class="form-body">
+
+      <div class="form-section-label">Position</div>
+
+      <div class="form-group">
+        <label class="form-label">
+          Stake (USD)
+          <span class="form-label-hint">amount wagered</span>
+        </label>
+        <input class="form-input" id="f_stake" type="number" min="1" step="1" placeholder="1000" oninput="onFieldChange()">
+        <div class="field-error" id="err_stake"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          American Odds
+          <span class="form-label-hint" id="odds_hint">≈ 52.4% implied</span>
+        </label>
+        <input class="form-input" id="f_americanOdds" type="number" step="1" placeholder="-110" oninput="onOddsChange()">
+        <div class="field-error" id="err_americanOdds"></div>
+      </div>
+
+      <div class="form-section-label">Edge Estimate</div>
+
+      <div class="form-group">
+        <label class="form-label">
+          True Win Probability
+          <span class="form-label-hint" id="prob_hint">0.52</span>
+        </label>
+        <div class="input-row">
+          <input type="range" id="f_trueWinProb_range" min="0.01" max="0.99" step="0.01" value="0.52"
+            style="flex:1;accent-color:#3b82f6;cursor:pointer" oninput="onProbRange()">
+          <input class="form-input" id="f_trueWinProb" type="number" min="0.01" max="0.99" step="0.01"
+            style="width:80px;flex:none" oninput="onProbInput()">
         </div>
-        <div class="field">
-          <label>Sportsbook Implied Probability</label>
-          <input type="number" id="sportsbook_prob" value="0.55" min="0.01" max="0.99" step="0.01" required />
-          <div class="hint">Your book's estimate of event probability (0–1)</div>
+        <div class="field-error" id="err_trueWinProb"></div>
+      </div>
+
+      <div class="form-section-label">Hedge Strategy</div>
+
+      <div class="form-group">
+        <label class="form-label">
+          Hedge Fraction
+          <span class="form-label-hint" id="hedge_hint">50% of optimal</span>
+        </label>
+        <div class="input-row">
+          <input type="range" id="f_hedgeFraction_range" min="0" max="1" step="0.05" value="0.5"
+            style="flex:1;accent-color:#3b82f6;cursor:pointer" oninput="onHedgeRange()">
+          <input class="form-input" id="f_hedgeFraction" type="number" min="0" max="1" step="0.01"
+            style="width:80px;flex:none" oninput="onHedgeInput()">
         </div>
-        <div class="field">
-          <label>Prediction Market Price</label>
-          <input type="number" id="market_price" value="0.52" min="0.01" max="0.99" step="0.01" required />
-          <div class="hint">Cost per contract paying $1 if event occurs (0–1)</div>
-        </div>
-        <div class="field">
-          <label>Prediction Market Liquidity (USD)</label>
-          <input type="number" id="liquidity" value="80000" min="1" step="1" required />
-          <div class="hint">Maximum hedge size available in the market</div>
-        </div>
-        <div id="error-box"></div>
-        <button type="submit" id="run-btn">Run Simulation</button>
-      </form>
+        <div class="field-error" id="err_hedgeFraction"></div>
+      </div>
+
+      <div class="form-section-label">Friction</div>
+
+      <div class="form-group">
+        <label class="form-label">
+          Fill Probability
+          <span class="form-label-hint">order execution rate</span>
+        </label>
+        <input class="form-input" id="f_fillProbability" type="number" min="0" max="1" step="0.01" oninput="onFieldChange()">
+        <div class="field-error" id="err_fillProbability"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Slippage (bps)</label>
+        <input class="form-input" id="f_slippageBps" type="number" min="0" step="1" oninput="onFieldChange()">
+        <div class="field-error" id="err_slippageBps"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Fee (bps)</label>
+        <input class="form-input" id="f_feeBps" type="number" min="0" step="1" oninput="onFieldChange()">
+        <div class="field-error" id="err_feeBps"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Latency (bps)</label>
+        <input class="form-input" id="f_latencyBps" type="number" min="0" step="1" oninput="onFieldChange()">
+        <div class="field-error" id="err_latencyBps"></div>
+      </div>
+
+      <div class="form-section-label">Simulation</div>
+
+      <div class="form-group">
+        <label class="form-label">
+          Paths
+          <span class="form-label-hint">100 – 50,000</span>
+        </label>
+        <input class="form-input" id="f_nPaths" type="number" min="100" max="50000" step="100" oninput="onFieldChange()">
+        <div class="field-error" id="err_nPaths"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          Seed
+          <span class="form-label-hint">for reproducibility</span>
+        </label>
+        <input class="form-input" id="f_seed" type="number" step="1" oninput="onFieldChange()">
+        <div class="field-error" id="err_seed"></div>
+      </div>
+
     </div>
 
-    <!-- Results Panel -->
-    <div>
-      <div id="results-area" class="results-area">
-        <div class="card" style="margin-bottom:1.25rem;">
-          <h2>Key Metrics</h2>
-          <div class="metrics-grid" id="metrics-grid"></div>
-        </div>
+    <div class="form-footer">
+      <button class="btn-run" id="runBtn" onclick="runSimulation()">Run Simulation</button>
+    </div>
+  </div>
 
-        <div class="card" style="margin-bottom:1.25rem;">
-          <h2>Profit Distribution</h2>
-          <div id="chart"></div>
-        </div>
+  <!-- RESULTS PANEL -->
+  <div class="results-panel" id="resultsPanel">
 
-        <div class="card">
-          <h2>Profit Percentiles</h2>
-          <table class="percentile-table" id="pct-table">
-            <thead>
-              <tr>
-                <th>Percentile</th>
-                <th>P&amp;L (USD)</th>
-                <th>Interpretation</th>
-              </tr>
-            </thead>
-            <tbody id="pct-body"></tbody>
-          </table>
+    <div class="results-placeholder" id="resultsPlaceholder">
+      <svg width="52" height="52" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="0.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <p>Configure parameters and run the simulation</p>
+    </div>
+
+    <div id="resultsContent" style="display:none">
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <!-- Run ID -->
+      <div class="run-header">
+        <div class="run-id-badge">
+          RUN ID&nbsp; <span class="run-id-value" id="runIdValue">—</span>
+        </div>
+        <button class="btn-copy" id="copyBtn" onclick="copyLink()">Copy link</button>
+      </div>
+
+      <!-- Metric cards -->
+      <div class="metric-grid" id="metricGrid"></div>
+
+      <!-- Chart -->
+      <div class="results-section-label">P&L Distribution</div>
+      <div id="chart"></div>
+
+      <!-- Assumptions -->
+      <div class="results-section-label" style="margin-top:8px">Model Assumptions</div>
+      <div class="assumptions">
+        <div class="assumptions-head" onclick="toggleAssumptions()">
+          <span>What this model includes and excludes</span>
+          <span id="assumptionsArrow">▼</span>
+        </div>
+        <div class="assumptions-body" id="assumptionsBody">
+          <div class="assumptions-cols">
+            <div>
+              <div class="assumptions-subtitle">What this includes</div>
+              <ul class="assumptions-list">
+                <li>Monte Carlo simulation with configurable paths and seeded RNG</li>
+                <li>Sportsbook P&L based on American odds (favourite and underdog)</li>
+                <li>NO-contract hedge leg priced at your true win probability estimate</li>
+                <li>Stochastic order fill — hedge may not execute at target price</li>
+                <li>Slippage cost on hedge entry (market impact)</li>
+                <li>Transaction fees charged as basis points on hedge notional</li>
+                <li>Latency penalty applied as additional adverse price movement</li>
+                <li>Analytical break-even win rate for the configured strategy</li>
+              </ul>
+            </div>
+            <div>
+              <div class="assumptions-subtitle">What this excludes</div>
+              <ul class="assumptions-list">
+                <li>Real-time market data — model uses your inputs as fair value</li>
+                <li>Order book depth and market impact beyond slippage estimate</li>
+                <li>Correlation between sportsbook line movements and market prices</li>
+                <li>Regulatory, counterparty, and platform risk</li>
+                <li>Tax treatment of gains and losses</li>
+                <li>Margin requirements or collateral costs</li>
+                <li>Multi-leg or compound hedging strategies</li>
+                <li>The hedge uses a simplified single-price approximation</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- FEEDBACK MODAL -->
+<div class="modal-overlay" id="feedbackModal">
+  <div class="modal">
+    <h3>Send Feedback</h3>
+    <p>Share your thoughts on the simulator — what's useful, what's missing, or any bugs you've encountered. Your run ID is pre-filled so we can reproduce the exact scenario.</p>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:16px">Run ID: <span id="feedbackRunId">—</span></p>
+    <div class="modal-actions">
+      <button class="btn-modal-close" onclick="closeFeedback()">Cancel</button>
+      <a class="btn-modal-action" id="feedbackMailto" href="#">Open email client</a>
     </div>
   </div>
 </div>
 
 <script>
-  const form = document.getElementById('sim-form');
-  const btn  = document.getElementById('run-btn');
-  const errBox = document.getElementById('error-box');
+// ---- PRESETS ----
+const PRESETS = {
+  conservative: {
+    stake: 500, americanOdds: -110, trueWinProb: 0.50,
+    hedgeFraction: 0.80, fillProbability: 0.90,
+    slippageBps: 10, feeBps: 10, latencyBps: 5,
+    nPaths: 10000, seed: 42,
+  },
+  neutral: {
+    stake: 1000, americanOdds: -110, trueWinProb: 0.52,
+    hedgeFraction: 0.50, fillProbability: 0.75,
+    slippageBps: 40, feeBps: 15, latencyBps: 10,
+    nPaths: 10000, seed: 42,
+  },
+  aggressive: {
+    stake: 5000, americanOdds: 150, trueWinProb: 0.45,
+    hedgeFraction: 0.25, fillProbability: 0.60,
+    slippageBps: 80, feeBps: 20, latencyBps: 25,
+    nPaths: 10000, seed: 42,
+  },
+};
 
-  const PCT_LABELS = {
-    p1:  ['1st',  'Extreme tail loss'],
-    p5:  ['5th',  'Value at Risk (95% CVaR boundary)'],
-    p25: ['25th', 'Poor outcome'],
-    p50: ['50th', 'Median outcome'],
-    p75: ['75th', 'Good outcome'],
-    p95: ['95th', 'Strong outcome'],
-    p99: ['99th', 'Best-case tail'],
+let activePreset = null;
+let lastRunId = null;
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  activePreset = name;
+  setField('stake',          p.stake);
+  setField('americanOdds',   p.americanOdds);
+  setField('trueWinProb',    p.trueWinProb);
+  setField('hedgeFraction',  p.hedgeFraction);
+  setField('fillProbability',p.fillProbability);
+  setField('slippageBps',    p.slippageBps);
+  setField('feeBps',         p.feeBps);
+  setField('latencyBps',     p.latencyBps);
+  setField('nPaths',         p.nPaths);
+  setField('seed',           p.seed);
+  syncRanges();
+  updateDerived();
+  clearAllErrors();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('preset-' + name).classList.add('active');
+  track('preset_selected', { preset: name });
+}
+
+function setField(id, val) {
+  document.getElementById('f_' + id).value = val;
+}
+
+// ---- VALIDATION ----
+const VALIDATORS = {
+  stake:          { check: v => v > 0,            msg: 'Must be greater than 0' },
+  americanOdds:   { check: v => v !== 0 && v >= -10000 && v <= 10000 && !isNaN(v), msg: 'Must be non-zero between -10000 and +10000' },
+  trueWinProb:    { check: v => v > 0 && v < 1,   msg: 'Must be between 0 and 1 (exclusive)' },
+  hedgeFraction:  { check: v => v >= 0 && v <= 1, msg: 'Must be between 0 and 1' },
+  fillProbability:{ check: v => v >= 0 && v <= 1, msg: 'Must be between 0 and 1' },
+  slippageBps:    { check: v => v >= 0,            msg: 'Must be 0 or greater' },
+  feeBps:         { check: v => v >= 0,            msg: 'Must be 0 or greater' },
+  latencyBps:     { check: v => v >= 0,            msg: 'Must be 0 or greater' },
+  nPaths:         { check: v => v >= 100 && v <= 50000 && Number.isInteger(v), msg: 'Must be an integer between 100 and 50,000' },
+  seed:           { check: v => !isNaN(v) && Number.isInteger(v), msg: 'Must be a whole number' },
+};
+
+function validateField(name) {
+  const el = document.getElementById('f_' + name);
+  const err = document.getElementById('err_' + name);
+  if (!el || !err) return true;
+  const val = parseFloat(el.value);
+  const v = VALIDATORS[name];
+  if (!v) return true;
+  const ok = v.check(val);
+  el.classList.toggle('invalid', !ok);
+  err.textContent = ok ? '' : v.msg;
+  err.classList.toggle('visible', !ok);
+  return ok;
+}
+
+function validateAll() {
+  return Object.keys(VALIDATORS).map(validateField).every(Boolean);
+}
+
+function clearAllErrors() {
+  Object.keys(VALIDATORS).forEach(name => {
+    const el = document.getElementById('f_' + name);
+    const err = document.getElementById('err_' + name);
+    if (el) el.classList.remove('invalid');
+    if (err) { err.textContent = ''; err.classList.remove('visible'); }
+  });
+}
+
+function onFieldChange() {
+  activePreset = null;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+// ---- RANGE / DERIVED ----
+function onOddsChange() {
+  onFieldChange();
+  updateDerived();
+  validateField('americanOdds');
+}
+
+function onProbRange() {
+  const v = parseFloat(document.getElementById('f_trueWinProb_range').value);
+  document.getElementById('f_trueWinProb').value = v;
+  updateDerived();
+  validateField('trueWinProb');
+}
+
+function onProbInput() {
+  const v = parseFloat(document.getElementById('f_trueWinProb').value);
+  if (!isNaN(v)) document.getElementById('f_trueWinProb_range').value = v;
+  updateDerived();
+  validateField('trueWinProb');
+  onFieldChange();
+}
+
+function onHedgeRange() {
+  const v = parseFloat(document.getElementById('f_hedgeFraction_range').value);
+  document.getElementById('f_hedgeFraction').value = v;
+  updateDerived();
+}
+
+function onHedgeInput() {
+  const v = parseFloat(document.getElementById('f_hedgeFraction').value);
+  if (!isNaN(v)) document.getElementById('f_hedgeFraction_range').value = v;
+  updateDerived();
+  validateField('hedgeFraction');
+  onFieldChange();
+}
+
+function syncRanges() {
+  const prob = parseFloat(document.getElementById('f_trueWinProb').value);
+  if (!isNaN(prob)) document.getElementById('f_trueWinProb_range').value = prob;
+  const hedge = parseFloat(document.getElementById('f_hedgeFraction').value);
+  if (!isNaN(hedge)) document.getElementById('f_hedgeFraction_range').value = hedge;
+}
+
+function updateDerived() {
+  const odds = parseFloat(document.getElementById('f_americanOdds').value);
+  if (!isNaN(odds) && odds !== 0) {
+    const implied = odds < 0 ? (-odds) / (-odds + 100) : 100 / (odds + 100);
+    document.getElementById('odds_hint').textContent = `≈ ${(implied * 100).toFixed(1)}% implied`;
+  }
+  const prob = parseFloat(document.getElementById('f_trueWinProb').value);
+  if (!isNaN(prob)) {
+    document.getElementById('prob_hint').textContent = prob.toFixed(2);
+  }
+  const hedge = parseFloat(document.getElementById('f_hedgeFraction').value);
+  if (!isNaN(hedge)) {
+    document.getElementById('hedge_hint').textContent = `${Math.round(hedge * 100)}% of optimal`;
+  }
+}
+
+// ---- COLLECT FORM VALUES ----
+function collectParams() {
+  return {
+    stake:           parseFloat(document.getElementById('f_stake').value),
+    americanOdds:    parseFloat(document.getElementById('f_americanOdds').value),
+    trueWinProb:     parseFloat(document.getElementById('f_trueWinProb').value),
+    hedgeFraction:   parseFloat(document.getElementById('f_hedgeFraction').value),
+    fillProbability: parseFloat(document.getElementById('f_fillProbability').value),
+    slippageBps:     parseFloat(document.getElementById('f_slippageBps').value),
+    feeBps:          parseFloat(document.getElementById('f_feeBps').value),
+    latencyBps:      parseFloat(document.getElementById('f_latencyBps').value),
+    nPaths:          parseInt(document.getElementById('f_nPaths').value),
+    seed:            parseInt(document.getElementById('f_seed').value),
   };
+}
 
-  function fmt(n) {
-    return (n >= 0 ? '+' : '') + '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+// ---- RUN ----
+async function runSimulation() {
+  if (!validateAll()) return;
+  const params = collectParams();
+  const btn = document.getElementById('runBtn');
+
+  track('run_started', params);
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Running ' + params.nPaths.toLocaleString() + ' paths…';
+  document.getElementById('errorBanner').style.display = 'none';
+
+  try {
+    const res = await fetch('/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Simulation failed' }));
+      throw new Error(err.detail || 'Simulation failed');
+    }
+
+    const data = await res.json();
+    renderResults(data, params);
+    updateURL(params);
+    track('run_completed', { runId: data.runId, ev: data.ev, p5: data.p5, p95: data.p95 });
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Simulation';
   }
+}
 
-  function fmtUSD(n) {
-    return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  }
+// ---- RENDER ----
+function renderResults(data, params) {
+  document.getElementById('resultsPlaceholder').style.display = 'none';
+  const content = document.getElementById('resultsContent');
+  content.style.display = 'block';
 
-  function colorClass(val) {
-    if (val > 0) return 'positive';
-    if (val < 0) return 'negative';
-    return 'neutral';
-  }
+  lastRunId = data.runId;
+  document.getElementById('runIdValue').textContent = data.runId;
+  document.getElementById('feedbackRunId').textContent = data.runId;
+  updateFeedbackMailto(data.runId);
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errBox.style.display = 'none';
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Running 10,000 simulations…';
+  const grid = document.getElementById('metricGrid');
+  grid.innerHTML = `
+    ${card('Expected Value (EV)', fmtUSD(data.ev), data.ev >= 0 ? 'positive' : 'negative', 'Mean P&L across all ' + params.nPaths.toLocaleString() + ' paths')}
+    ${card('5th Percentile', fmtUSD(data.p5), 'negative', 'Value at Risk boundary')}
+    ${card('Median (p50)', fmtUSD(data.p50), data.p50 >= 0 ? 'positive' : 'negative', '50% of outcomes')}
+    ${card('95th Percentile', fmtUSD(data.p95), 'positive', 'Strong upside scenario')}
+    ${card('Max Loss', fmtUSD(data.maxLoss), 'negative', 'Worst simulated outcome')}
+    ${card('Break-Even Win Rate', fmtPct(data.breakEvenWinRate), 'warn', 'Min win rate for EV = 0')}
+  `;
 
-    const payload = {
-      exposure:        parseFloat(document.getElementById('exposure').value),
-      sportsbook_prob: parseFloat(document.getElementById('sportsbook_prob').value),
-      market_price:    parseFloat(document.getElementById('market_price').value),
-      liquidity:       parseFloat(document.getElementById('liquidity').value),
-    };
+  const chartData = JSON.parse(data.chartJson);
+  Plotly.react('chart', chartData.data, chartData.layout, { responsive: true, displayModeBar: false });
+}
 
-    try {
-      const res = await fetch('/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+function card(label, value, type, sub) {
+  return `<div class="metric-card ${type}">
+    <div class="metric-label">${label}</div>
+    <div class="metric-value">${value}</div>
+    <div class="metric-sub">${sub}</div>
+  </div>`;
+}
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Simulation failed');
-      }
+// ---- URL PARAMS ----
+function updateURL(params) {
+  const sp = new URLSearchParams({
+    stake:           params.stake,
+    americanOdds:    params.americanOdds,
+    trueWinProb:     params.trueWinProb,
+    hedgeFraction:   params.hedgeFraction,
+    fillProbability: params.fillProbability,
+    slippageBps:     params.slippageBps,
+    feeBps:          params.feeBps,
+    latencyBps:      params.latencyBps,
+    nPaths:          params.nPaths,
+    seed:            params.seed,
+  });
+  history.replaceState(null, '', '?' + sp.toString());
+}
 
-      const data = await res.json();
-      renderResults(data, payload);
-    } catch (err) {
-      errBox.textContent = err.message;
-      errBox.style.display = 'block';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Run Simulation';
+function restoreFromURL() {
+  const sp = new URLSearchParams(window.location.search);
+  const fields = ['stake','americanOdds','trueWinProb','hedgeFraction','fillProbability','slippageBps','feeBps','latencyBps','nPaths','seed'];
+  let found = false;
+  fields.forEach(f => {
+    if (sp.has(f)) {
+      document.getElementById('f_' + f).value = sp.get(f);
+      found = true;
     }
   });
+  return found;
+}
 
-  function renderResults(data, params) {
-    const area = document.getElementById('results-area');
-    area.style.display = 'block';
+function copyLink() {
+  const btn = document.getElementById('copyBtn');
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy link'; btn.classList.remove('copied'); }, 2000);
+  });
+}
 
-    // Metrics
-    const grid = document.getElementById('metrics-grid');
-    const constrained = data.summary.liquidity_constrained;
-    grid.innerHTML = `
-      <div class="metric neutral">
-        <div class="metric-label">Optimal Hedge Size</div>
-        <div class="metric-value">${fmtUSD(data.optimal_hedge_size)}</div>
-        <div class="metric-sub">${data.summary.hedge_coverage_pct}% of exposure covered
-          ${constrained ? '<span class="tag tag-warn">Liquidity limited</span>' : '<span class="tag tag-ok">Fully hedged</span>'}
-        </div>
-      </div>
-      <div class="metric negative">
-        <div class="metric-label">Hedge Cost</div>
-        <div class="metric-value">${fmtUSD(data.hedge_cost)}</div>
-        <div class="metric-sub">Upfront premium paid</div>
-      </div>
-      <div class="metric ${colorClass(data.expected_profit)}">
-        <div class="metric-label">Expected Profit</div>
-        <div class="metric-value">${fmt(data.expected_profit)}</div>
-        <div class="metric-sub">Mean across all simulations</div>
-      </div>
-      <div class="metric negative">
-        <div class="metric-label">Worst Case Loss</div>
-        <div class="metric-value">${fmt(data.worst_case_loss)}</div>
-        <div class="metric-sub">Minimum P&amp;L observed</div>
-      </div>
-      <div class="metric positive">
-        <div class="metric-label">Best Case Gain</div>
-        <div class="metric-value">${fmt(data.best_case_gain)}</div>
-        <div class="metric-sub">Maximum P&amp;L observed</div>
-      </div>
-      <div class="metric neutral">
-        <div class="metric-label">Simulated Event Rate</div>
-        <div class="metric-value">${data.summary.simulated_event_rate}%</div>
-        <div class="metric-sub">Actual rate across simulations</div>
-      </div>
-    `;
+// ---- FEEDBACK ----
+function openFeedback() {
+  document.getElementById('feedbackModal').classList.add('open');
+}
+function closeFeedback() {
+  document.getElementById('feedbackModal').classList.remove('open');
+}
+function updateFeedbackMailto(runId) {
+  const subject = encodeURIComponent('ProbEdge Hedge Simulator Feedback — Run ' + runId);
+  const body = encodeURIComponent('Run ID: ' + runId + '\nURL: ' + window.location.href + '\n\nFeedback:\n');
+  document.getElementById('feedbackMailto').href = 'mailto:?subject=' + subject + '&body=' + body;
+}
 
-    // Percentile table
-    const tbody = document.getElementById('pct-body');
-    tbody.innerHTML = '';
-    for (const [key, val] of Object.entries(data.profit_percentiles)) {
-      const [label, interp] = PCT_LABELS[key] || [key, ''];
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${label}</td>
-        <td style="color:${val>=0?'#68d391':'#fc8181'};font-weight:600;">${fmt(val)}</td>
-        <td style="color:#718096;">${interp}</td>
-      `;
-      tbody.appendChild(tr);
-    }
+// ---- ASSUMPTIONS ----
+function toggleAssumptions() {
+  const body = document.getElementById('assumptionsBody');
+  const arrow = document.getElementById('assumptionsArrow');
+  body.classList.toggle('open');
+  arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
 
-    // Chart
-    const chartData = JSON.parse(data.chart_json);
-    chartData.layout.paper_bgcolor = '#1a202c';
-    chartData.layout.plot_bgcolor  = '#1a202c';
-    chartData.layout.font          = { color: '#a0aec0', family: 'Inter, sans-serif', size: 12 };
-    chartData.layout.xaxis = { ...chartData.layout.xaxis, gridcolor: '#2d3748', zerolinecolor: '#4a5568' };
-    chartData.layout.yaxis = { ...chartData.layout.yaxis, gridcolor: '#2d3748' };
+// ---- ANALYTICS ----
+function track(event, data) {
+  console.log('[analytics]', event, data);
+}
 
-    Plotly.react('chart', chartData.data, chartData.layout, { responsive: true, displayModeBar: false });
-  }
+// ---- HELPERS ----
+function fmtUSD(n) {
+  const abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (n >= 0 ? '+$' : '-$') + abs;
+}
+function fmtPct(n) {
+  return (n * 100).toFixed(2) + '%';
+}
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('resultsContent').style.display = 'block';
+  document.getElementById('resultsPlaceholder').style.display = 'none';
+}
+
+// ---- INIT ----
+const didRestore = restoreFromURL();
+if (!didRestore) {
+  applyPreset('neutral');
+} else {
+  syncRanges();
+  updateDerived();
+}
+if (didRestore) {
+  runSimulation();
+}
 </script>
 </body>
 </html>

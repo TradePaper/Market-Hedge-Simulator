@@ -59,10 +59,10 @@
   nav.innerHTML = `
     <span class="site-nav-logo">ProbEdge</span>
     <div class="site-nav-links">
-      <a class="site-nav-link" href="/event-markets">Event Markets</a>
-      <a class="site-nav-link" href="/hedging-simulator">Hedging Simulator</a>
-      <a class="site-nav-link" href="/probability-gap">Probability Gap</a>
-      <a class="site-nav-link" href="/contract-library">Contract Library</a>
+      <a class="site-nav-link" href="/event-markets">Event Markets Intelligence</a>
+      <a class="site-nav-link" href="/hedging-simulator">Sportsbook Hedge Simulator</a>
+      <a class="site-nav-link" href="/probability-gap">Probability Gap Dashboard</a>
+      <a class="site-nav-link" href="/contract-library">Event Contract Library</a>
     </div>
   `;
 

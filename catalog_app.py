@@ -312,9 +312,12 @@ def simulate_v12_curve(params: RiskCurveIn):
         liquidity=liq,
         internal_reprice=reprice,
     )
-    curve = build_risk_transfer_curve(inp, [float(x) for x in params.liabilities], params.strategy)
+    sorted_liabilities = sorted(float(x) for x in params.liabilities)
+    curve = build_risk_transfer_curve(inp, sorted_liabilities, params.strategy)
+    assert len(curve.points) == len(sorted_liabilities)
     return {
         "strategy": curve.strategy,
+        "liabilities_requested": len(sorted_liabilities),
         "points": [dataclasses.asdict(pt) for pt in curve.points],
     }
 

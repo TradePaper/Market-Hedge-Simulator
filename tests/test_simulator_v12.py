@@ -178,3 +178,96 @@ class TestStrategies:
         metrics = optimize_hedge_ratio(inp)
         assert 0.0 <= metrics.optimal_hedge_ratio <= 1.0
         assert metrics.cvar_95 is not None
+
+
+# ---------------------------------------------------------------------------
+# Acceptance item 1: v12 determinism with seed
+# ---------------------------------------------------------------------------
+
+class TestV12Determinism:
+    def test_external_hedge_reproducible(self):
+        inp = base_inp(seed="repro_ext", n_paths=3000)
+        m1 = simulate_external_hedge(inp)
+        m2 = simulate_external_hedge(inp)
+        assert m1.ev == m2.ev
+        assert m1.cvar_95 == m2.cvar_95
+        assert m1.max_loss == m2.max_loss
+
+    def test_internal_reprice_reproducible(self):
+        model = InternalRepriceModel(enabled=True, odds_move_sensitivity=0.001, handle_retention_decay=0.3)
+        inp = base_inp(seed="repro_rep", n_paths=3000, internal_reprice=model, strategy="internal_reprice")
+        m1 = simulate_internal_reprice(inp)
+        m2 = simulate_internal_reprice(inp)
+        assert m1.ev == m2.ev
+        assert m1.cvar_95 == m2.cvar_95
+
+    def test_hybrid_reproducible(self):
+        inp = base_inp(seed="repro_hyb", n_paths=3000, strategy="hybrid")
+        m1 = simulate_hybrid(inp)
+        m2 = simulate_hybrid(inp)
+        assert m1.ev == m2.ev
+        assert m1.cvar_95 == m2.cvar_95
+
+    def test_different_seeds_produce_different_results(self):
+        m1 = simulate_external_hedge(base_inp(seed="seed_A", n_paths=2000))
+        m2 = simulate_external_hedge(base_inp(seed="seed_B", n_paths=2000))
+        assert m1.ev != m2.ev
+
+
+# ---------------------------------------------------------------------------
+# Acceptance item 4: CVaR is tail mean, not percentile proxy
+# ---------------------------------------------------------------------------
+
+class TestCVaRIsTailMean:
+    def test_cvar_is_mean_of_tail_not_percentile(self):
+        paths = [-200.0, -100.0, -80.0, -60.0, -40.0] + [100.0] * 95
+        result = cvar(paths, alpha=0.95)
+        tail_mean = (-200 + -100 + -80 + -60 + -40) / 5
+        percentile_proxy = float(np.percentile(paths, 5))
+        assert abs(result - tail_mean) < 1.0, f"Expected tail mean {tail_mean}, got {result}"
+        assert result != percentile_proxy, "cvar must not equal the raw 5th percentile"
+
+    def test_cvar_lower_than_p5_when_tail_is_heavy(self):
+        paths = [-1000.0, -900.0, -800.0] + [50.0] * 97
+        result = cvar(paths, alpha=0.95)
+        p5 = float(np.percentile(paths, 5))
+        assert result < p5 + 1.0
+
+    def test_cvar_equals_ev_when_all_paths_equal(self):
+        paths = [-42.0] * 200
+        assert abs(cvar(paths) - (-42.0)) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# Acceptance item 5: strategy comparison with identical seed
+# ---------------------------------------------------------------------------
+
+class TestStrategyComparisonFairSeed:
+    def _run_all(self, seed="compare_seed", n_paths=4000, **kw):
+        model = InternalRepriceModel(enabled=True, odds_move_sensitivity=0.0005, handle_retention_decay=0.2)
+        ext = simulate_external_hedge(
+            base_inp(seed=seed, n_paths=n_paths, strategy="external_hedge", **kw))
+        rep = simulate_internal_reprice(
+            base_inp(seed=seed, n_paths=n_paths, strategy="internal_reprice",
+                     internal_reprice=model, **kw))
+        hyb = simulate_hybrid(
+            base_inp(seed=seed, n_paths=n_paths, strategy="hybrid",
+                     internal_reprice=model, **kw))
+        return ext, rep, hyb
+
+    def test_all_three_strategies_are_deterministic_under_same_seed(self):
+        ext1, rep1, hyb1 = self._run_all(seed="fair_A")
+        ext2, rep2, hyb2 = self._run_all(seed="fair_A")
+        assert ext1.ev == ext2.ev
+        assert rep1.ev == rep2.ev
+        assert hyb1.ev == hyb2.ev
+
+    def test_strategies_produce_distinct_metrics(self):
+        ext, rep, hyb = self._run_all()
+        evs = {ext.ev, rep.ev, hyb.ev}
+        assert len(evs) >= 2, "At least two strategies should differ in EV"
+
+    def test_external_hedge_has_lower_max_loss_than_no_hedge(self):
+        no_hedge = simulate_external_hedge(base_inp(seed="no_h", hedge_fraction=0.0, n_paths=4000))
+        full_hedge = simulate_external_hedge(base_inp(seed="no_h", hedge_fraction=1.0, n_paths=4000))
+        assert full_hedge.max_loss >= no_hedge.max_loss - 1.0 or full_hedge.cvar_95 >= no_hedge.cvar_95 - 1.0

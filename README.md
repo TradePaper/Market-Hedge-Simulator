@@ -103,7 +103,7 @@ Tracked events:
 
 ## Quality / Testing
 
-Current automated test status: **50/50 passing**.
+Current automated test status: **60/60 passing**.
 
 Coverage includes:
 - deterministic simulation behavior

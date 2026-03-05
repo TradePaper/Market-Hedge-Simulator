@@ -9,11 +9,28 @@ from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 
+from datetime import datetime, timezone
+
 from simulator import SimInput, run_simulation
 from providers import MockProvider, PolymarketProvider, KalshiProvider, CachedProvider
 from core.types_v12 import SimulationInputV12, LiquidityModel, InternalRepriceModel
 from core.strategies import simulate_strategy
 from core.optimizer import optimize_hedge_ratio, build_risk_transfer_curve
+from core.analytics import capture as analytics_capture
+
+
+def _scenario_meta(inp: SimulationInputV12) -> dict:
+    return {
+        "seed": inp.seed,
+        "n_paths": inp.n_paths,
+        "fill_probability": inp.fill_probability,
+        "liquidity": dataclasses.asdict(inp.liquidity) if inp.liquidity else None,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _collapsed(ev: float, cvar_95: float, max_loss: float) -> bool:
+    return abs(ev - cvar_95) < 1e-4 and abs(cvar_95 - max_loss) < 1e-4
 
 os.makedirs("tmp", exist_ok=True)
 DB_PATH = "tmp/contracts.db"
@@ -287,7 +304,23 @@ def simulate_v12(params: SimulateV12In):
         metrics = optimize_hedge_ratio(inp)
     else:
         metrics = simulate_strategy(inp)
-    return dataclasses.asdict(metrics)
+
+    collapsed = _collapsed(metrics.ev, metrics.cvar_95, metrics.max_loss)
+    analytics_capture("v12_simulation_run", {
+        "strategy": inp.strategy,
+        "objective": inp.objective,
+        "n_paths": inp.n_paths,
+        "optimize": params.optimize,
+        "distribution_collapsed": collapsed,
+    })
+    result = dataclasses.asdict(metrics)
+    result["distribution_collapsed"] = collapsed
+    result["collapse_reason"] = (
+        "fill_probability=1.0 with full hedge eliminates all outcome variance; "
+        "tail metrics equal by construction." if collapsed else None
+    )
+    result["scenario"] = _scenario_meta(inp)
+    return result
 
 
 @app.post("/simulate/v12/curve")
@@ -359,11 +392,33 @@ def get_risk_transfer(
         objective=objective,
     )
     curve = build_risk_transfer_curve(inp, sorted_liabilities, strategy)
+    points_out = []
+    any_collapsed = False
+    for pt in curve.points:
+        d = dataclasses.asdict(pt)
+        col = _collapsed(pt.ev, pt.cvar_95, pt.max_loss)
+        if col:
+            any_collapsed = True
+        d["distribution_collapsed"] = col
+        points_out.append(d)
+
+    analytics_capture("risk_transfer_curve_requested", {
+        "strategy": strategy,
+        "objective": objective,
+        "n_liabilities": len(sorted_liabilities),
+        "any_collapsed": any_collapsed,
+    })
     return {
         "strategy": curve.strategy,
         "objective": objective,
         "liabilities_requested": len(sorted_liabilities),
-        "points": [dataclasses.asdict(pt) for pt in curve.points],
+        "any_distribution_collapsed": any_collapsed,
+        "collapse_reason": (
+            "One or more points have fill_probability=1.0 with full hedge; "
+            "tail metrics equal EV by construction." if any_collapsed else None
+        ),
+        "scenario": _scenario_meta(inp),
+        "points": points_out,
     }
 
 

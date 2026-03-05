@@ -335,3 +335,84 @@ class TestStaleHealthStatus:
         inner = MockProvider()
         cached = CachedProvider(inner, ttl=9999)
         assert cached.health.last_ok_at is None
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaker
+# ---------------------------------------------------------------------------
+
+class TestCircuitBreaker:
+    def _make_failing_provider(self, n_calls_before_circuit):
+        from unittest.mock import MagicMock
+        from providers.cache import CachedProvider, _CIRCUIT_THRESHOLD
+        inner = MagicMock()
+        inner.get_markets.side_effect = RuntimeError("upstream down")
+        inner.get_timestamp.return_value = ""
+        cp = CachedProvider(inner, ttl=0)
+        return cp, inner
+
+    def test_circuit_opens_after_threshold_errors(self):
+        from providers.cache import CachedProvider, _CIRCUIT_THRESHOLD
+        import time
+        from unittest.mock import MagicMock
+        inner = MagicMock()
+        inner.get_markets.side_effect = RuntimeError("fail")
+        inner.get_timestamp.return_value = ""
+        cp = CachedProvider(inner, ttl=0)
+        for _ in range(_CIRCUIT_THRESHOLD):
+            try:
+                cp.get_markets()
+            except Exception:
+                pass
+        assert cp._consecutive_errors >= _CIRCUIT_THRESHOLD
+        assert cp._circuit_open_until > time.monotonic()
+
+    def test_circuit_skips_inner_while_open(self):
+        from providers.cache import CachedProvider, _CIRCUIT_THRESHOLD
+        from unittest.mock import MagicMock
+        inner = MagicMock()
+        inner.get_markets.side_effect = RuntimeError("fail")
+        inner.get_timestamp.return_value = ""
+        cp = CachedProvider(inner, ttl=0)
+        # Trigger threshold errors
+        for _ in range(_CIRCUIT_THRESHOLD):
+            try:
+                cp.get_markets()
+            except Exception:
+                pass
+        call_count = inner.get_markets.call_count
+        # With circuit open and no cache, next call should raise without calling inner again
+        try:
+            cp.get_markets()
+        except Exception:
+            pass
+        assert inner.get_markets.call_count == call_count, \
+            "circuit-open path must not call inner provider"
+
+    def test_circuit_resets_on_success(self):
+        from providers.cache import CachedProvider, _CIRCUIT_THRESHOLD
+        from unittest.mock import MagicMock, patch
+        import time
+        inner = MagicMock()
+        inner.get_markets.side_effect = RuntimeError("fail")
+        inner.get_timestamp.return_value = ""
+        cp = CachedProvider(inner, ttl=0)
+        for _ in range(_CIRCUIT_THRESHOLD):
+            try:
+                cp.get_markets()
+            except Exception:
+                pass
+        assert cp._circuit_open_until > time.monotonic()
+        # Force circuit closed by moving time past backoff
+        cp._circuit_open_until = 0.0
+        inner.get_markets.side_effect = None
+        inner.get_markets.return_value = []
+        cp.get_markets()
+        assert cp._consecutive_errors == 0
+        assert cp._circuit_open_until == 0.0
+
+    def test_backoff_grows_with_error_count(self):
+        from providers.cache import _backoff_seconds, _CIRCUIT_THRESHOLD
+        b1 = _backoff_seconds(_CIRCUIT_THRESHOLD)
+        b2 = _backoff_seconds(_CIRCUIT_THRESHOLD + 2)
+        assert b2 > b1, "backoff must increase with consecutive errors"

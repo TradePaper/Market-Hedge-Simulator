@@ -226,6 +226,22 @@
   .results-placeholder svg { opacity: .2; }
   .results-placeholder p { font-size: 13px; }
 
+  .collapse-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #1c1a10;
+    border: 1px solid #78350f;
+    border-left: 4px solid #eab308;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 12.5px;
+    color: #fef9c3;
+    line-height: 1.5;
+  }
+  .collapse-banner svg { flex-shrink: 0; margin-top: 1px; }
+
   /* run id */
   .run-header {
     display: flex;
@@ -569,6 +585,18 @@
 
       <div class="error-banner" id="errorBanner"></div>
 
+      <!-- Collapsed distribution warning -->
+      <div class="collapse-banner" id="collapseBanner" style="display:none">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#eab308" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        <span><strong>Distribution collapsed — tail metrics equal by construction.</strong>
+          This run has <code>fill_probability = 1.0</code> and a hedge that fully covers the liability,
+          which eliminates all outcome variance. EV, CVaR, and max loss are identical because every
+          simulated path resolves to the same P&amp;L. Lower <code>fill_probability</code> or reduce
+          <code>hedge_fraction</code> to see a spread distribution.</span>
+      </div>
+
       <!-- Run ID -->
       <div class="run-header">
         <div class="run-id-badge">
@@ -855,6 +883,13 @@ function renderResults(data, params) {
   document.getElementById('resultsPlaceholder').style.display = 'none';
   const content = document.getElementById('resultsContent');
   content.style.display = 'block';
+
+  // Collapsed-distribution detection: applies to both v1 and v12 responses.
+  // v12 sets data.distribution_collapsed explicitly; for v1 we infer from metrics.
+  const isCollapsed = data.distribution_collapsed === true ||
+    (Math.abs((data.ev || 0) - (data.maxLoss || data.max_loss || 0)) < 0.01 &&
+     Math.abs((data.p5 || 0) - (data.p95 || 0)) < 0.01);
+  document.getElementById('collapseBanner').style.display = isCollapsed ? 'flex' : 'none';
 
   lastRunId = data.runId;
   document.getElementById('runIdValue').textContent = data.runId;

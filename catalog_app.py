@@ -277,6 +277,27 @@ def app_config():
     }
 
 
+@app.get("/status")
+def status():
+    health = {
+        name: dataclasses.asdict(provider.health)
+        for name, provider in _PROVIDERS.items()
+    }
+    overall = "ok"
+    for h in health.values():
+        if h["status"] == "down":
+            overall = "down"
+            break
+        if h["status"] == "degraded":
+            overall = "degraded"
+    return {
+        "status": overall,
+        "providers": health,
+        "analytics": bool(os.environ.get("POSTHOG_KEY")),
+        "version": "1.1.0",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------

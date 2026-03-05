@@ -83,4 +83,89 @@
   var analyticsScript = document.createElement('script');
   analyticsScript.src = '/static/analytics.js';
   document.head.appendChild(analyticsScript);
+
+  var footerStyles = `
+    .site-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #050911;
+      border-top: 1px solid #111d30;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10px;
+      color: #344d6a;
+      z-index: 100;
+    }
+    .site-footer-label {
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 700;
+      color: #243350;
+    }
+    .site-footer-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .site-footer-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #344d6a;
+      flex-shrink: 0;
+    }
+    .site-footer-updated {
+      margin-left: auto;
+      color: #243350;
+    }
+    body { padding-bottom: 28px; }
+  `;
+
+  var footerStyleEl = document.createElement('style');
+  footerStyleEl.textContent = footerStyles;
+  document.head.appendChild(footerStyleEl);
+
+  var footer = document.createElement('div');
+  footer.className = 'site-footer';
+  footer.innerHTML = '<span class="site-footer-label">Providers</span><span id="footer-health">…</span><span class="site-footer-updated" id="footer-ts"></span>';
+
+  function appendFooter() {
+    document.body.appendChild(footer);
+    refreshFooterHealth();
+    setInterval(refreshFooterHealth, 30000);
+  }
+
+  function refreshFooterHealth() {
+    fetch('/api/providers/health')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var colors = { ok: '#22c55e', degraded: '#eab308', down: '#ef4444' };
+        var html = Object.keys(data).map(function(name) {
+          var h = data[name];
+          var color = colors[h.status] || '#344d6a';
+          var staleWarning = h.stale ? ' ⚠' : '';
+          return '<span class="site-footer-item">'
+            + '<span class="site-footer-dot" style="background:' + color + '" title="' + h.status + '"></span>'
+            + name + ': ' + h.status + staleWarning
+            + '</span>';
+        }).join('');
+        document.getElementById('footer-health').innerHTML = html;
+        document.getElementById('footer-ts').textContent = 'refreshed ' + new Date().toLocaleTimeString();
+      })
+      .catch(function() {
+        document.getElementById('footer-health').textContent = 'health unavailable';
+      });
+  }
+
+  if (document.body) {
+    appendFooter();
+  } else {
+    document.addEventListener('DOMContentLoaded', appendFooter);
+  }
 })();

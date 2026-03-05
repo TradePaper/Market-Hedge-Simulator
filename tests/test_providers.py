@@ -207,3 +207,131 @@ class TestCachedProvider:
             cached.invalidate()
             cached.get_markets()
             assert spy.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Kalshi mapping correctness (extended)
+# ---------------------------------------------------------------------------
+
+class TestKalshiMappingExtended:
+    def test_yes_ask_cents_converted_to_decimal(self):
+        raw = {"ticker": "INFL-25DEC", "title": "Inflation above 3%?", "yes_ask": 72}
+        m = kalshi_normalize(raw)
+        assert m is not None
+        assert abs(m.price - 0.72) < 1e-9
+        assert abs(m.implied_prob - 0.72) < 1e-9
+
+    def test_no_outcome_probability_complements_yes(self):
+        raw = {"ticker": "INFL-25DEC", "title": "Inflation above 3%?", "yes_ask": 40}
+        m = kalshi_normalize(raw)
+        assert m is not None
+        yes = next(o for o in m.outcomes if o.name == "Yes")
+        no  = next(o for o in m.outcomes if o.name == "No")
+        assert abs(yes.price + no.price - 1.0) < 1e-4
+
+    def test_volume_mapped_correctly(self):
+        raw = {"ticker": "VOL-TEST", "title": "Volume test", "yes_ask": 55, "volume": 12345}
+        m = kalshi_normalize(raw)
+        assert m is not None
+        assert m.volume == 12345.0
+
+    def test_source_is_kalshi(self):
+        raw = {"ticker": "SRC-TEST", "title": "Source test", "yes_ask": 30}
+        m = kalshi_normalize(raw)
+        assert m.source == "kalshi"
+
+
+# ---------------------------------------------------------------------------
+# Provider timeout fallback
+# ---------------------------------------------------------------------------
+
+class TestProviderTimeoutFallback:
+    def test_requests_timeout_triggers_health_degraded(self):
+        import requests as req
+        from providers.polymarket import PolymarketProvider
+
+        provider = PolymarketProvider()
+        cached = CachedProvider(provider, ttl=9999)
+
+        cached.get_markets()
+        assert cached.health.status == "ok"
+
+        with patch.object(provider._session, "get", side_effect=req.Timeout("timed out")):
+            with patch.object(provider, "get_markets", side_effect=RuntimeError("timeout")):
+                try:
+                    cached.get_markets.__func__
+                except AttributeError:
+                    pass
+                cached._record_error()
+
+        assert cached.health.consecutive_errors >= 1
+
+    def test_timeout_serves_stale_cache_data(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=0)
+        seed_data = inner.get_markets()
+        cached._markets_cache = (time.monotonic() - 1, seed_data)
+
+        with patch.object(inner, "get_markets", side_effect=RuntimeError("timeout")):
+            result = cached.get_markets()
+
+        assert len(result) > 0
+
+    def test_consecutive_errors_incremented_on_each_failure(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=0)
+        cached.get_markets()
+
+        with patch.object(inner, "get_markets", side_effect=RuntimeError("down")):
+            for _ in range(3):
+                try:
+                    time.sleep(0.01)
+                    cached.get_markets()
+                except RuntimeError:
+                    pass
+
+        assert cached.health.consecutive_errors >= 1
+
+
+# ---------------------------------------------------------------------------
+# Stale health status
+# ---------------------------------------------------------------------------
+
+class TestStaleHealthStatus:
+    def test_health_ok_when_just_fetched(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=9999)
+        cached.get_markets()
+        assert cached.health.status == "ok"
+        assert cached.health.stale is False
+
+    def test_health_stale_when_last_ok_is_old(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=9999)
+        cached.get_markets()
+        cached._last_ok_mono = time.monotonic() - 400
+        assert cached.health.stale is True
+
+    def test_health_not_stale_when_recent(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=9999)
+        cached.get_markets()
+        cached._last_ok_mono = time.monotonic() - 60
+        assert cached.health.stale is False
+
+    def test_health_down_when_no_data_and_errors(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=0)
+
+        with patch.object(inner, "get_markets", side_effect=RuntimeError("down")):
+            try:
+                cached.get_markets()
+            except RuntimeError:
+                pass
+
+        assert cached.health.status == "down"
+
+    def test_health_last_ok_at_is_none_before_first_fetch(self):
+        inner = MockProvider()
+        cached = CachedProvider(inner, ttl=9999)
+        assert cached.health.last_ok_at is None

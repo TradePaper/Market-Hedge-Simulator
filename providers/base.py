@@ -23,6 +23,14 @@ class MarketData:
     end_date: Optional[str] = None
 
 
+@dataclass
+class ProviderHealth:
+    status: str
+    last_ok_at: Optional[str]
+    consecutive_errors: int
+    stale: bool
+
+
 class MarketProvider(ABC):
     @abstractmethod
     def get_markets(self, limit: int = 20) -> List[MarketData]:

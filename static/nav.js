@@ -79,4 +79,8 @@
     var href = link.getAttribute('href').replace(/\/$/, '');
     if (href === path) link.classList.add('active');
   });
+
+  var analyticsScript = document.createElement('script');
+  analyticsScript.src = '/static/analytics.js';
+  document.head.appendChild(analyticsScript);
 })();

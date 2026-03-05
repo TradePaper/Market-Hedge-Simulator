@@ -945,7 +945,11 @@ function toggleAssumptions() {
 
 // ---- ANALYTICS ----
 function track(event, data) {
-  console.log('[analytics]', event, data);
+  if (window.probedge && window.probedge.track) {
+    window.probedge.track(event, data || {});
+  } else {
+    console.log('[analytics]', event, data);
+  }
 }
 
 // ---- HELPERS ----

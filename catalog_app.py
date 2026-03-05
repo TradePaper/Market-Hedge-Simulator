@@ -262,6 +262,21 @@ def get_market(
     return dataclasses.asdict(market)
 
 
+@app.get("/api/providers/health")
+def providers_health():
+    return {
+        name: dataclasses.asdict(provider.health)
+        for name, provider in _PROVIDERS.items()
+    }
+
+
+@app.get("/api/config")
+def app_config():
+    return {
+        "posthogKey": os.environ.get("POSTHOG_KEY", ""),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------

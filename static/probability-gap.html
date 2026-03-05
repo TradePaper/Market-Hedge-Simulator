@@ -466,7 +466,31 @@
     document.querySelectorAll('.src-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.src === src);
     });
+    if (window.probedge) window.probedge.track('provider_selected', { source: src, page: 'probability_gap' });
     loadFeed(src);
+  }
+
+  async function loadHealth() {
+    try {
+      const res = await fetch('/api/providers/health');
+      if (!res.ok) return;
+      const data = await res.json();
+      document.querySelectorAll('.src-btn').forEach(btn => {
+        const src = btn.dataset.src;
+        const h = data[src];
+        if (!h) return;
+        let dot = btn.querySelector('.health-dot');
+        if (!dot) {
+          dot = document.createElement('span');
+          dot.className = 'health-dot';
+          dot.style.cssText = 'display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:5px;vertical-align:middle;';
+          btn.appendChild(dot);
+        }
+        const colors = { ok: '#22c55e', degraded: '#eab308', down: '#ef4444' };
+        dot.style.background = colors[h.status] || '#5e7a9a';
+        dot.title = `${h.status}${h.last_ok_at ? ' · last ok ' + new Date(h.last_ok_at).toLocaleTimeString() : ''}`;
+      });
+    } catch (_) {}
   }
 
   async function loadFeed(src) {
@@ -484,10 +508,20 @@
 
       if (data.fallback) {
         badge.style.display = '';
+        if (window.probedge) window.probedge.track('provider_fallback_triggered', { requested: src, served: data.source });
       }
 
-      const ts = data.updated_at ? new Date(data.updated_at).toLocaleTimeString() : '';
-      status.textContent = ts ? `Updated ${ts}` : '';
+      const updatedAt = data.updated_at ? new Date(data.updated_at) : null;
+      const ageMs = updatedAt ? Date.now() - updatedAt.getTime() : 0;
+      const isStale = ageMs > 5 * 60 * 1000;
+      if (updatedAt) {
+        status.innerHTML = isStale
+          ? `<span style="color:#eab308" title="Data is more than 5 minutes old">⚠ Stale · ${updatedAt.toLocaleTimeString()}</span>`
+          : `Updated ${updatedAt.toLocaleTimeString()}`;
+      } else {
+        status.textContent = '';
+      }
+      loadHealth();
 
       if (!data.markets || data.markets.length === 0) {
         feed.innerHTML = '<div class="feed-loading">No markets available for this source.</div>';

@@ -1,0 +1,162 @@
+Use this `v1.2` spec directly.
+
+```python
+# core/types_v12.py
+
+from dataclasses import dataclass
+from typing import Literal, List, Dict, Optional
+
+
+StrategyMode = Literal["external_hedge", "internal_reprice", "hybrid"]
+ObjectiveMode = Literal["min_cvar", "min_max_loss", "max_sharpe", "target_ev_min_risk"]
+
+
+@dataclass
+class LiquidityModel:
+    available_liquidity: float      # dollars
+    participation_rate: float       # 0..1
+    impact_factor: float            # >=0, scales price impact
+    depth_exponent: float = 1.0     # linear=1, convex>1
+
+
+@dataclass
+class InternalRepriceModel:
+    enabled: bool
+    odds_move_sensitivity: float    # probability pts moved per $1 liability
+    handle_retention_decay: float   # demand loss per probability pt move
+    min_prob: float = 0.01
+    max_prob: float = 0.99
+
+
+@dataclass
+class SimulationInputV12:
+    # existing
+    stake: float
+    american_odds: int
+    true_win_prob: float
+    hedge_fraction: float
+    fill_probability: float
+    slippage_bps: float
+    fee_bps: float
+    latency_bps: float
+    n_paths: int
+    seed: Optional[str] = None
+
+    # new
+    liability: float = 0.0
+    strategy: StrategyMode = "external_hedge"
+    objective: ObjectiveMode = "min_cvar"
+    liquidity: Optional[LiquidityModel] = None
+    internal_reprice: Optional[InternalRepriceModel] = None
+
+
+@dataclass
+class StrategyMetrics:
+    ev: float
+    p5: float
+    p50: float
+    p95: float
+    max_loss: float
+    cvar_95: float
+    optimal_hedge_ratio: float
+    effective_hedge_notional: float
+    hedge_utilization: float        # effective/max_hedge
+
+
+@dataclass
+class RiskTransferPoint:
+    liability: float
+    optimal_hedge_ratio: float
+    ev: float
+    cvar_95: float
+    max_loss: float
+
+
+@dataclass
+class RiskTransferCurve:
+    strategy: StrategyMode
+    points: List[RiskTransferPoint]
+```
+
+```python
+# core/liquidity.py
+
+def max_hedge_notional(available_liquidity: float, participation_rate: float) -> float:
+    return max(0.0, available_liquidity * participation_rate)
+
+def apply_hedge_cap(requested_hedge: float, max_hedge: float) -> float:
+    return max(0.0, min(requested_hedge, max_hedge))
+
+def market_impact_delta_price(hedge_size: float, liquidity: float, impact_factor: float, depth_exponent: float = 1.0) -> float:
+    if liquidity <= 0:
+        return 0.0
+    return impact_factor * (hedge_size / liquidity) ** depth_exponent
+
+def effective_cost_rate(base_cost_rate: float, impact_delta: float) -> float:
+    return max(0.0, base_cost_rate + impact_delta)
+```
+
+```python
+# core/strategies.py
+
+def simulate_external_hedge(inp: SimulationInputV12) -> StrategyMetrics:
+    ...
+
+def simulate_internal_reprice(inp: SimulationInputV12) -> StrategyMetrics:
+    ...
+
+def simulate_hybrid(inp: SimulationInputV12) -> StrategyMetrics:
+    ...
+
+def simulate_strategy(inp: SimulationInputV12) -> StrategyMetrics:
+    if inp.strategy == "external_hedge":
+        return simulate_external_hedge(inp)
+    if inp.strategy == "internal_reprice":
+        return simulate_internal_reprice(inp)
+    return simulate_hybrid(inp)
+```
+
+```python
+# core/optimizer.py
+
+def optimize_hedge_ratio(inp: SimulationInputV12, grid=None) -> StrategyMetrics:
+    """
+    Grid search hedge_fraction in [0,1] (e.g. step 0.02), evaluate objective, return best metrics.
+    """
+    ...
+
+def build_risk_transfer_curve(
+    base_input: SimulationInputV12,
+    liabilities: List[float],
+    strategy: StrategyMode,
+) -> RiskTransferCurve:
+    """
+    For each liability, optimize hedge ratio and collect point.
+    """
+    ...
+```
+
+```python
+# core/metrics.py
+
+def cvar(paths: List[float], alpha: float = 0.95) -> float:
+    """
+    CVaR at 95% = mean of worst 5% outcomes.
+    """
+    ...
+```
+
+Implementation rules:
+
+1. In every path, compute `requested_hedge = hedge_fraction * liability`.
+2. Cap via liquidity: `effective_hedge = min(requested_hedge, max_hedge)`.
+3. Add impact: `cost_rate = base_cost + market_impact_delta_price(...)`.
+4. Use `effective_hedge` (not requested hedge) in hedge P/L.
+5. For `internal_reprice`, adjust offered probability/odds from liability, then model reduced incoming flow via `handle_retention_decay`.
+6. For `hybrid`, do partial repricing first, then hedge residual liability.
+
+Minimum new tests:
+
+1. Hedge cap always enforced.
+2. Increasing `impact_factor` weakly decreases EV.
+3. `build_risk_transfer_curve` returns non-decreasing hedge ratio under `min_cvar` for increasing liability (allow tiny tolerance).

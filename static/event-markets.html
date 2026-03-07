@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Event Markets Intelligence — ProbEdge</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -22,73 +23,253 @@
     --mono:     'Courier New', Courier, monospace;
     --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 13px;
-    min-height: 100vh;
-  }
-  .page-header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 20px 32px 16px;
-  }
-  .page-header h1 {
-    font-size: 18px;
-    font-weight: 700;
-    color: #e2eaf4;
-    margin-bottom: 4px;
-  }
-  .page-header p {
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  .stats-bar {
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; min-height: 100vh; }
+
+  /* ── Article Banner ─────────────────────────────── */
+  .article-banner {
+    background: linear-gradient(135deg, #0b1e38 0%, #0d2040 100%);
+    border-bottom: 1px solid #1e3a5f;
+    padding: 14px 32px;
     display: flex;
-    gap: 1px;
-    background: var(--border);
-    border-bottom: 1px solid var(--border);
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
   }
-  .stat-cell {
-    flex: 1;
+  .article-banner-icon { font-size: 20px; flex-shrink: 0; }
+  .article-banner-text { flex: 1; min-width: 220px; }
+  .article-banner-text strong { color: #7eb8f7; font-size: 13px; display: block; margin-bottom: 2px; }
+  .article-banner-text span { color: var(--text-dim); font-size: 12px; }
+  .article-banner-code {
+    background: #05111f;
+    border: 1px solid #1e3a5f;
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #60a5fa;
+    white-space: nowrap;
+  }
+  .btn-preset-load {
+    background: #1e3a5f;
+    color: #7eb8f7;
+    border: 1px solid #2a4e7a;
+    border-radius: 5px;
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .15s;
+    white-space: nowrap;
+  }
+  .btn-preset-load:hover { background: #254d7a; }
+
+  /* ── Page Header ─────────────────────────────────── */
+  .page-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 32px 16px; }
+  .page-header h1 { font-size: 18px; font-weight: 700; color: #e2eaf4; margin-bottom: 4px; }
+  .page-header p  { font-size: 12px; color: var(--text-dim); }
+
+  /* ── Curve Section ───────────────────────────────── */
+  #curve {
+    border-bottom: 1px solid var(--border);
     background: var(--surface);
-    padding: 14px 24px;
+  }
+  .curve-header {
+    padding: 18px 32px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .curve-header h2 { font-size: 14px; font-weight: 700; color: #e2eaf4; }
+  .curve-header p  { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .curve-body { display: grid; grid-template-columns: 310px 1fr; gap: 0; }
+  @media (max-width: 860px) { .curve-body { grid-template-columns: 1fr; } }
+
+  /* ── Controls Panel ──────────────────────────────── */
+  .controls-panel {
+    border-right: 1px solid var(--border);
+    padding: 18px 20px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 18px;
+    overflow-y: auto;
+    max-height: 780px;
   }
-  .stat-label {
+  .ctrl-section { display: flex; flex-direction: column; gap: 10px; }
+  .ctrl-label {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--text-mute);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
   }
-  .stat-value {
-    font-size: 22px;
-    font-weight: 700;
+  .ctrl-row { display: flex; align-items: center; gap: 8px; }
+  .ctrl-row label { font-size: 11px; color: var(--text-dim); flex: 1; min-width: 90px; }
+  .ctrl-row .val {
     font-family: var(--mono);
+    font-size: 11px;
+    color: #7eb8f7;
+    min-width: 52px;
+    text-align: right;
   }
+  input[type=range] {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    min-width: 0;
+  }
+  input[type=text], input[type=number], select {
+    background: #07111e;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: var(--sans);
+    padding: 5px 8px;
+    width: 100%;
+    outline: none;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus { border-color: var(--accent); }
+
+  .checkbox-group { display: flex; flex-direction: column; gap: 6px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .checkbox-row input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .checkbox-row span { font-size: 12px; color: var(--text-dim); }
+  .checkbox-row input:checked + span { color: var(--text); }
+
+  .action-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { color: var(--text); border-color: var(--accent); }
+  .btn-primary {
+    background: #1a3154;
+    color: #7eb8f7;
+    border-color: #2a4e7a;
+    flex: 1;
+    justify-content: center;
+  }
+  .btn-primary:hover { background: #1f3e6a; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-sm { padding: 5px 10px; font-size: 10px; }
+  .btn-green { color: #4ade80; border-color: #1e4426; }
+  .btn-green:hover { background: #0d2414; border-color: #4ade80; }
+
+  /* ── Chart Area ──────────────────────────────────── */
+  .chart-area { display: flex; flex-direction: column; }
+  .metric-tabs {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .metric-tab {
+    flex: 1;
+    padding: 9px 4px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-mute);
+    background: var(--surface);
+    cursor: pointer;
+    border: none;
+    font-family: var(--sans);
+    transition: all .15s;
+  }
+  .metric-tab.active { color: #7eb8f7; background: var(--surface2); }
+  .metric-tab:hover:not(.active) { color: var(--text-dim); background: var(--surface2); }
+  #mainChart { width: 100%; height: 380px; }
+  #distChart  { width: 100%; height: 260px; border-top: 1px solid var(--border); }
+  .chart-label {
+    padding: 10px 16px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-mute);
+    border-top: 1px solid var(--border);
+  }
+  .chart-note {
+    display: none;
+    margin: 2px 16px 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--text-mute);
+    background: rgba(234,179,8,0.06);
+    border-left: 2px solid rgba(234,179,8,0.40);
+    border-radius: 0 4px 4px 0;
+    line-height: 1.4;
+  }
+  .chart-note.visible { display: block; }
+
+  /* ── Reproduce Panel ─────────────────────────────── */
+  .reproduce-panel {
+    display: none;
+    margin: 0 20px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    background: #06101b;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .reproduce-panel.visible { display: flex; }
+  .repro-cell { display: flex; flex-direction: column; gap: 2px; }
+  .repro-key {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-mute);
+  }
+  .repro-val { font-family: var(--mono); font-size: 12px; color: #7eb8f7; }
+
+  /* ── Stats Bar ───────────────────────────────────── */
+  .stats-bar { display: flex; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .stat-cell { flex: 1; background: var(--surface); padding: 14px 24px; display: flex; flex-direction: column; gap: 3px; }
+  .stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-mute); }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: var(--mono); }
   .stat-value.total   { color: #7eb8f7; }
   .stat-value.low     { color: #4ade80; }
   .stat-value.medium  { color: #facc15; }
   .stat-value.high    { color: #f87171; }
-  .controls {
+
+  /* ── Filter Bar ──────────────────────────────────── */
+  .controls-bar {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 14px 32px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
+    flex-wrap: wrap;
   }
-  .filter-label {
-    font-size: 11px;
-    color: var(--text-dim);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-  }
+  .filter-label { font-size: 11px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
   .filter-btn {
     font-size: 11px;
     font-weight: 600;
@@ -104,20 +285,11 @@
   .filter-btn:hover { color: var(--text); border-color: var(--accent); }
   .filter-btn.active { background: #0f1e36; color: #e2eaf4; border-color: var(--accent); }
   .filter-sep { width: 1px; height: 20px; background: var(--border2); margin: 0 4px; }
-  .grid-container {
-    padding: 24px 32px;
-  }
-  .grid-count {
-    font-size: 11px;
-    color: var(--text-mute);
-    font-family: var(--mono);
-    margin-bottom: 16px;
-  }
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 14px;
-  }
+
+  /* ── Card Grid ───────────────────────────────────── */
+  .grid-container { padding: 24px 32px; }
+  .grid-count { font-size: 11px; color: var(--text-mute); font-family: var(--mono); margin-bottom: 16px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
   .market-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -131,22 +303,9 @@
     text-decoration: none;
     color: inherit;
   }
-  .market-card:hover {
-    border-color: var(--accent);
-    background: var(--surface2);
-  }
-  .card-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .card-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #dce8f5;
-    line-height: 1.35;
-  }
+  .market-card:hover { border-color: var(--accent); background: var(--surface2); }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .card-name { font-size: 14px; font-weight: 600; color: #dce8f5; line-height: 1.35; }
   .badge {
     display: inline-flex;
     align-items: center;
@@ -165,50 +324,253 @@
   .badge-low    { background: #14301a; color: #4ade80; border: 1px solid #1e4426; }
   .badge-medium { background: #2e2000; color: #facc15; border: 1px solid #433000; }
   .badge-high   { background: #300a0a; color: #f87171; border: 1px solid #4a1010; }
-  .card-oracle {
-    font-size: 11px;
-    color: var(--text-dim);
-    font-family: var(--mono);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .card-oracle { font-size: 11px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+  .card-date  { font-size: 10px; color: var(--text-mute); font-family: var(--mono); }
+  .card-arrow { font-size: 11px; color: var(--text-mute); }
+  .empty-state { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--text-mute); gap: 10px; font-size: 13px; }
+
+  /* ── Toast ───────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #0f2040;
+    border: 1px solid #2a4e7a;
+    color: #7eb8f7;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    z-index: 9999;
   }
-  .card-footer {
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Dist stats bar (above histogram) ───────────────*/
+  .dist-stats {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 2px;
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+    min-height: 0;
   }
-  .card-date {
-    font-size: 10px;
-    color: var(--text-mute);
-    font-family: var(--mono);
-  }
-  .card-arrow {
-    font-size: 11px;
-    color: var(--text-mute);
-  }
-  .empty-state {
-    grid-column: 1 / -1;
+  .dist-stat {
+    flex: 1;
+    background: var(--surface2);
+    padding: 9px 14px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 20px;
-    color: var(--text-mute);
-    gap: 10px;
-    font-size: 13px;
+    gap: 2px;
   }
+  .dist-stat-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-mute);
+  }
+  .dist-stat-val {
+    font-size: 15px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  .dist-stat-val.pos { color: #4ade80; }
+  .dist-stat-val.neg { color: #f87171; }
+  .dist-stat-val.neu { color: #7eb8f7; }
+
+  /* ── Loading overlay ─────────────────────────────── */
+  .spinner {
+    display: none;
+    width: 16px; height: 16px;
+    border: 2px solid #1e3a5f;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <script src="/static/nav.js"></script>
 
-<div class="page-header">
-  <h1>Event Markets Intelligence</h1>
-  <p>All catalogued prediction market contracts — click any card to view full details</p>
+<!-- ══ Article Landing Banner ══════════════════════════════════════════════ -->
+<div class="article-banner">
+  <div class="article-banner-icon">📖</div>
+  <div class="article-banner-text">
+    <strong>Reproducing results from the article?</strong>
+    <span>Load the canonical sportsbook exposure scenario to regenerate the exact published curves and tail-risk comparisons.</span>
+  </div>
+  <div class="article-banner-code">?scenario=superbowl_v1</div>
+  <button class="btn-preset-load" onclick="loadPreset('superbowl_v1', true)">Load Super Bowl Preset</button>
 </div>
 
+<!-- ══ Page Header ═════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <h1>Event Markets Intelligence</h1>
+  <p>Interactive hedge-curve simulator + all catalogued prediction market contracts</p>
+</div>
+
+<!-- ══ Interactive Curve Section ══════════════════════════════════════════ -->
+<div id="curve">
+  <div class="curve-header">
+    <div>
+      <h2>Liquidity-Constrained Hedge Coverage Curve</h2>
+      <p>With fixed event-market depth, the fraction of sportsbook exposure that can be hedged declines as liability grows.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="loadPreset('superbowl_v1')">⚡ Super Bowl Preset</button>
+    </div>
+  </div>
+
+  <div class="curve-body">
+    <!-- Controls -->
+    <div class="controls-panel">
+
+      <div class="ctrl-section">
+        <div class="ctrl-label">Probabilities</div>
+        <div class="ctrl-row">
+          <label>True Probability</label>
+          <input type="range" id="sTwp" min="0.30" max="0.80" step="0.01" value="0.54"
+                 oninput="sv('vTwp', (this.value*100).toFixed(0)+'%')">
+          <span class="val" id="vTwp">54%</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Market Price</label>
+          <input type="range" id="sPmp" min="0.05" max="0.95" step="0.01" value="0.48"
+                 oninput="sv('vPmp', (this.value*100).toFixed(0)+'%')">
+          <span class="val" id="vPmp">48%</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Fill Probability</label>
+          <input type="range" id="sFill" min="0.50" max="1.00" step="0.01" value="1.00"
+                 oninput="sv('vFill', (this.value*100).toFixed(0)+'%')">
+          <span class="val" id="vFill">100%</span>
+        </div>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-label">Liability Range ($)</div>
+        <div class="ctrl-row">
+          <label>Min liability</label>
+          <input type="range" id="sLiabMin" min="100" max="200000000" step="500000" value="20000000"
+                 oninput="sv('vLiabMin','$'+Number(this.value).toLocaleString())">
+          <span class="val" id="vLiabMin">$20,000,000</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Max liability</label>
+          <input type="range" id="sLiabMax" min="1000000" max="1000000000" step="1000000" value="200000000"
+                 oninput="sv('vLiabMax','$'+Number(this.value).toLocaleString())">
+          <span class="val" id="vLiabMax">$200,000,000</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Points (n)</label>
+          <input type="range" id="sLiabSteps" min="3" max="10" step="1" value="5"
+                 oninput="sv('vLiabSteps',this.value)">
+          <span class="val" id="vLiabSteps">5</span>
+        </div>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-label">Liquidity</div>
+        <div class="ctrl-row">
+          <label>Available ($)</label>
+          <input type="range" id="sLiqAvail" min="100000" max="500000000" step="100000" value="12000000"
+                 oninput="sv('vLiqAvail','$'+Number(this.value).toLocaleString())">
+          <span class="val" id="vLiqAvail">$12,000,000</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Participation</label>
+          <input type="range" id="sLiqPart" min="0.05" max="1.00" step="0.01" value="1.00"
+                 oninput="sv('vLiqPart',(this.value*100).toFixed(0)+'%')">
+          <span class="val" id="vLiqPart">100%</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Impact Factor</label>
+          <input type="range" id="sLiqImpact" min="0.00" max="2.00" step="0.05" value="0.10"
+                 oninput="sv('vLiqImpact',parseFloat(this.value).toFixed(2))">
+          <span class="val" id="vLiqImpact">0.10</span>
+        </div>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-label">Strategy</div>
+        <select id="sStrategy">
+          <option value="external_hedge">External Hedge</option>
+          <option value="internal_reprice">Internal Reprice</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-label">Engine Settings</div>
+        <div class="ctrl-row">
+          <label>Objective</label>
+        </div>
+        <select id="sObj">
+          <option value="max_ev">Maximize EV</option>
+          <option value="min_cvar">Minimize CVaR-95</option>
+          <option value="min_max_loss">Minimize Max Loss</option>
+          <option value="max_sharpe">Maximize Sharpe</option>
+          <option value="target_ev_min_risk">Target EV / Min Risk</option>
+        </select>
+        <div class="ctrl-row" style="margin-top:8px;">
+          <label>Seed</label>
+        </div>
+        <input type="text" id="sSeed" value="superbowl_v1" placeholder="e.g. superbowl_v1">
+        <div class="ctrl-row" style="margin-top:8px;">
+          <label>Paths (n)</label>
+          <input type="range" id="sNPaths" min="100" max="20000" step="500" value="20000"
+                 oninput="sv('vNPaths',Number(this.value).toLocaleString())">
+          <span class="val" id="vNPaths">20,000</span>
+        </div>
+      </div>
+
+    </div><!-- /controls-panel -->
+
+    <!-- Chart Area -->
+    <div class="chart-area">
+      <div class="metric-tabs">
+        <button class="metric-tab active" data-metric="hedge_ratio" onclick="setMetric('hedge_ratio',this)">Hedge Ratio</button>
+        <button class="metric-tab"        data-metric="ev"          onclick="setMetric('ev',this)">EV ($)</button>
+        <button class="metric-tab"        data-metric="cvar"        onclick="setMetric('cvar',this)">CVaR-95 ($)</button>
+        <button class="metric-tab"        data-metric="max_loss"    onclick="setMetric('max_loss',this)">Max Loss ($)</button>
+      </div>
+      <div id="mainChart"></div>
+      <div class="chart-note" id="chartNote"></div>
+      <div class="chart-label">Tail-Risk Distribution — Unhedged vs Hedged</div>
+      <div class="dist-stats" id="distStats"></div>
+      <div id="distChart"></div>
+    </div>
+  </div><!-- /curve-body -->
+
+  <!-- Reproduce panel -->
+  <div class="reproduce-panel" id="reproducePanel">
+    <div class="repro-cell"><div class="repro-key">Seed</div><div class="repro-val" id="rSeed">—</div></div>
+    <div class="repro-cell"><div class="repro-key">Requested n_paths</div><div class="repro-val" id="rReqPaths">—</div></div>
+    <div class="repro-cell"><div class="repro-key">Executed n_paths</div><div class="repro-val" id="rNPaths">—</div></div>
+    <div class="repro-cell"><div class="repro-key">Simulator</div><div class="repro-val" id="rVersion">—</div></div>
+    <div class="repro-cell"><div class="repro-key">Source</div><div class="repro-val" id="rSource">—</div></div>
+    <div class="repro-cell"><div class="repro-key">Dist. Liability</div><div class="repro-val" id="rDistLiab">—</div></div>
+    <div class="repro-cell"><div class="repro-key">Timestamp UTC</div><div class="repro-val" id="rTs">—</div></div>
+  </div>
+
+  <!-- Action row -->
+  <div class="action-row">
+    <button class="btn btn-primary" id="btnRun" onclick="runScenario()">
+      <div class="spinner" id="spin"></div>
+      <span id="runLabel">Run Scenario</span>
+    </button>
+    <button class="btn" id="btnPNG" onclick="exportPNG()" title="Export chart as PNG">Export PNG</button>
+    <button class="btn" id="btnCSV" onclick="exportCSV()" title="Export data as CSV">Export CSV</button>
+    <button class="btn btn-green" id="btnShare" onclick="copyShareURL()" title="Copy share URL">Copy URL</button>
+  </div>
+</div><!-- /#curve -->
+
+<!-- ══ Contract Library Section ═══════════════════════════════════════════ -->
 <div class="stats-bar" id="statsBar">
   <div class="stat-cell"><div class="stat-label">Total Contracts</div><div class="stat-value total" id="statTotal">—</div></div>
   <div class="stat-cell"><div class="stat-label">Low Risk</div><div class="stat-value low" id="statLow">—</div></div>
@@ -218,7 +580,7 @@
   <div class="stat-cell"><div class="stat-label">Categorical</div><div class="stat-value total" id="statCat">—</div></div>
 </div>
 
-<div class="controls">
+<div class="controls-bar">
   <span class="filter-label">Risk</span>
   <button class="filter-btn active" data-filter-risk="all">All</button>
   <button class="filter-btn" data-filter-risk="low">Low</button>
@@ -236,93 +598,512 @@
   <div class="card-grid" id="cardGrid"></div>
 </div>
 
+<!-- Toast -->
+<div id="toast"></div>
+
 <script>
-  let allContracts = [];
-  let riskFilter = 'all';
-  let typeFilter = 'all';
+// ── State ─────────────────────────────────────────────────────────────────
+let lastResponse = null;
+let activeMetric = 'hedge_ratio';
 
-  async function load() {
-    const res = await fetch('/api/contracts');
-    allContracts = await res.json();
-    updateStats(allContracts);
-    render();
-  }
+// ── Helpers ───────────────────────────────────────────────────────────────
+function sv(id, val) { document.getElementById(id).textContent = val; }
 
-  function updateStats(contracts) {
-    document.getElementById('statTotal').textContent  = contracts.length;
-    document.getElementById('statLow').textContent    = contracts.filter(c => c.manipulation_risk === 'low').length;
-    document.getElementById('statMed').textContent    = contracts.filter(c => c.manipulation_risk === 'medium').length;
-    document.getElementById('statHigh').textContent   = contracts.filter(c => c.manipulation_risk === 'high').length;
-    document.getElementById('statBinary').textContent = contracts.filter(c => c.market_type === 'binary').length;
-    document.getElementById('statCat').textContent    = contracts.filter(c => c.market_type === 'categorical').length;
-  }
+function toast(msg, ms = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms);
+}
 
-  function render() {
-    let filtered = allContracts;
-    if (riskFilter !== 'all') filtered = filtered.filter(c => c.manipulation_risk === riskFilter);
-    if (typeFilter !== 'all') filtered = filtered.filter(c => c.market_type === typeFilter);
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-    const grid = document.getElementById('cardGrid');
-    document.getElementById('gridCount').textContent = `${filtered.length} contract${filtered.length !== 1 ? 's' : ''}`;
+function riskLabel(r) { return r === 'low' ? '▼ LOW' : r === 'high' ? '▲ HIGH' : '◆ MED'; }
+function fmtDate(ts) {
+  if (!ts) return '—';
+  try { return new Date(ts + 'Z').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }); }
+  catch { return ts; }
+}
 
-    if (filtered.length === 0) {
-      grid.innerHTML = `<div class="empty-state"><p>No contracts match the selected filters.</p></div>`;
-      return;
+// ── Plotly theme ──────────────────────────────────────────────────────────
+const PLOTLY_LAYOUT_BASE = {
+  paper_bgcolor: '#0d1520',
+  plot_bgcolor:  '#080d14',
+  font: { color: '#c8d6e8', size: 11, family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  xaxis: { gridcolor: '#1a2840', zerolinecolor: '#1a2840', tickfont: { size: 10 } },
+  yaxis: { gridcolor: '#1a2840', zerolinecolor: '#243350', tickfont: { size: 10 } },
+  legend: { bgcolor: '#0d1520', bordercolor: '#1a2840', borderwidth: 1, font: { size: 10 } },
+  margin: { t: 28, r: 16, b: 44, l: 56 },
+};
+
+// ── Metric tab ────────────────────────────────────────────────────────────
+function setMetric(metric, el) {
+  document.querySelectorAll('.metric-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  activeMetric = metric;
+  if (lastResponse) drawMainChart(lastResponse);
+}
+
+// ── Read params (v3 flat format) ──────────────────────────────────────────
+function readParams() {
+  return {
+    liability_min:           parseFloat(document.getElementById('sLiabMin').value),
+    liability_max:           parseFloat(document.getElementById('sLiabMax').value),
+    n_points:                parseInt(document.getElementById('sLiabSteps').value),
+    true_probability:        parseFloat(document.getElementById('sTwp').value),
+    prediction_market_price: parseFloat(document.getElementById('sPmp').value),
+    fill_probability:        parseFloat(document.getElementById('sFill').value),
+    liquidity: {
+      available_liquidity: parseFloat(document.getElementById('sLiqAvail').value),
+      participation_rate:  parseFloat(document.getElementById('sLiqPart').value),
+      impact_factor:       parseFloat(document.getElementById('sLiqImpact').value),
+      depth_exponent:      1.0,
+    },
+    objective: document.getElementById('sObj').value,
+    strategy:  document.getElementById('sStrategy').value,
+    seed:      document.getElementById('sSeed').value || 'default',
+    n_paths:   parseInt(document.getElementById('sNPaths').value),
+  };
+}
+
+// ── Presets ───────────────────────────────────────────────────────────────
+const PRESETS = {
+  superbowl_v1: {
+    twp: 0.60, pmp: 0.58, fill: 1.00,
+    liabMin: 20000000, liabMax: 200000000, liabSteps: 10,
+    liqAvail: 12000000, liqPart: 1.00, liqImpact: 0.10,
+    npaths: 20000, seed: 'superbowl_v1', objective: 'min_cvar',
+    strategy: 'external_hedge',
+  },
+};
+
+function loadPreset(name, autoRun = false) {
+  const p = PRESETS[name];
+  if (!p) return;
+
+  document.getElementById('sTwp').value       = p.twp;
+  document.getElementById('sPmp').value       = p.pmp;
+  document.getElementById('sFill').value      = p.fill;
+  document.getElementById('sLiabMin').value   = p.liabMin;
+  document.getElementById('sLiabMax').value   = p.liabMax;
+  document.getElementById('sLiabSteps').value = p.liabSteps;
+  document.getElementById('sLiqAvail').value  = p.liqAvail;
+  document.getElementById('sLiqPart').value   = p.liqPart;
+  document.getElementById('sLiqImpact').value = p.liqImpact;
+  document.getElementById('sNPaths').value    = p.npaths;
+  document.getElementById('sSeed').value      = p.seed;
+  document.getElementById('sObj').value       = p.objective;
+  document.getElementById('sStrategy').value  = p.strategy;
+
+  sv('vTwp',      (p.twp  * 100).toFixed(0) + '%');
+  sv('vPmp',      (p.pmp  * 100).toFixed(0) + '%');
+  sv('vFill',     (p.fill * 100).toFixed(0) + '%');
+  sv('vLiabMin',  '$' + p.liabMin.toLocaleString());
+  sv('vLiabMax',  '$' + p.liabMax.toLocaleString());
+  sv('vLiabSteps', p.liabSteps);
+  sv('vLiqAvail', '$' + p.liqAvail.toLocaleString());
+  sv('vLiqPart',  (p.liqPart * 100).toFixed(0) + '%');
+  sv('vLiqImpact', p.liqImpact.toFixed(2));
+  sv('vNPaths',   p.npaths.toLocaleString());
+
+  toast('Super Bowl preset loaded');
+  if (autoRun) setTimeout(runScenario, 200);
+}
+
+// ── Run scenario ──────────────────────────────────────────────────────────
+async function runScenario() {
+  const params = readParams();
+  const btn = document.getElementById('btnRun');
+  const spin = document.getElementById('spin');
+  const lbl  = document.getElementById('runLabel');
+  btn.disabled = true;
+  spin.style.display = 'block';
+  lbl.textContent = 'Running…';
+
+  try {
+    const res = await fetch('/api/risk-transfer/interactive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Request failed');
     }
-
-    grid.innerHTML = filtered.map(c => `
-      <a class="market-card" href="/contract-library#contract-${c.id}" onclick="openContract(event, ${c.id})">
-        <div class="card-top">
-          <div class="card-name">${esc(c.event_name)}</div>
-          <span class="badge badge-${c.manipulation_risk}">${riskLabel(c.manipulation_risk)}</span>
-        </div>
-        <div>
-          <span class="badge badge-${c.market_type}">${c.market_type}</span>
-        </div>
-        <div class="card-oracle">${esc(c.oracle_source)}</div>
-        <div class="card-footer">
-          <span class="card-date">${fmt(c.created_at)}</span>
-          <span class="card-arrow">View details →</span>
-        </div>
-      </a>
-    `).join('');
+    const data = await res.json();
+    lastResponse = { data, params };
+    drawMainChart(lastResponse);
+    updateChartNote(data);
+    updateReproducePanel(data.scenario_metadata);
+    drawDistChartFromResponse(data);
+  } catch (e) {
+    toast('Error: ' + e.message, 4000);
+  } finally {
+    btn.disabled = false;
+    spin.style.display = 'none';
+    lbl.textContent = 'Run Scenario';
   }
+}
 
-  function openContract(e, id) {
-    e.preventDefault();
-    sessionStorage.setItem('openContractId', id);
-    window.location.href = '/contract-library';
-  }
+// ── Main chart (Risk Transfer Curve) ──────────────────────────────────────
+function drawMainChart({ data, params }) {
+  const metricLabel = {
+    hedge_ratio: 'Hedgeable fraction of liability',
+    ev:          'Expected Value ($)',
+    cvar:        'CVaR-95 ($)',
+    max_loss:    'Max Loss ($)',
+  }[activeMetric] || activeMetric;
 
-  document.querySelectorAll('[data-filter-risk]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-filter-risk]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      riskFilter = btn.dataset.filterRisk;
-      render();
-    });
+  const pts   = data.curve_points;
+  const xAll  = pts.map(p => p.liability);
+  const yAll  = pts.map(p => p[activeMetric]);
+
+  const xFree  = pts.filter(p => !p.liquidity_binding).map(p => p.liability);
+  const yFree  = pts.filter(p => !p.liquidity_binding).map(p => p[activeMetric]);
+  const xBind  = pts.filter(p =>  p.liquidity_binding).map(p => p.liability);
+  const yBind  = pts.filter(p =>  p.liquidity_binding).map(p => p[activeMetric]);
+
+  const traces = [];
+  traces.push({
+    x: xAll, y: yAll, mode: 'lines', showlegend: false,
+    line: { color: 'rgba(59,130,246,0.22)', width: 1.5, dash: 'dot' },
+    hoverinfo: 'skip',
+  });
+  if (xFree.length) traces.push({
+    x: xFree, y: yFree, mode: 'lines+markers', name: params.strategy.replace(/_/g,' '),
+    line:   { color: '#3b82f6', width: 2 },
+    marker: { size: 7, color: '#3b82f6' },
+    hovertemplate: 'Liability: $%{x:,.0f}<br>' + metricLabel + ': %{y:.4f}<extra></extra>',
+  });
+  if (xBind.length) traces.push({
+    x: xBind, y: yBind, mode: 'markers', name: 'Liquidity plateau',
+    marker: { size: 10, color: '#eab308', symbol: 'diamond', line: { color: '#b45309', width: 1 } },
+    hovertemplate: 'Liability: $%{x:,.0f}<br>' + metricLabel + ': %{y:.4f}<br><b>Liquidity binding</b><extra>Plateau</extra>',
   });
 
-  document.querySelectorAll('[data-filter-type]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-filter-type]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      typeFilter = btn.dataset.filterType;
-      render();
-    });
+  const shapes = [];
+  const annotations = [];
+
+  if (data.liquidity_cap) {
+    const capX = data.liquidity_cap.cap_liability;
+    shapes.push({ type: 'line', x0: capX, x1: capX, y0: 0, y1: 1, xref: 'x', yref: 'paper',
+      line: { color: '#eab308', width: 1, dash: 'dot' } });
+    annotations.push({ x: capX, y: 0.97, xref: 'x', yref: 'paper',
+      text: `Liq cap $${(capX/1000).toFixed(0)}k`,
+      showarrow: false, xanchor: 'left', font: { color: '#eab308', size: 9 },
+      bgcolor: 'rgba(0,0,0,0)', borderpad: 2 });
+  }
+
+  const objLabels = { max_ev:'max EV', min_cvar:'min CVaR', min_max_loss:'min MaxLoss',
+    max_sharpe:'max Sharpe', target_ev_min_risk:'target EV' };
+  annotations.push({ x: 1, y: 1.04, xref: 'paper', yref: 'paper',
+    text: `Objective: ${objLabels[params.objective] || params.objective}`,
+    showarrow: false, xanchor: 'right', font: { color: '#7eb8f7', size: 10 },
+    bgcolor: 'rgba(0,0,0,0)' });
+
+  Plotly.react('mainChart', traces, {
+    ...PLOTLY_LAYOUT_BASE, shapes, annotations,
+    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, title: { text: 'Liability ($)', font: { size: 11 } } },
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, title: { text: metricLabel, font: { size: 11 } } },
+  }, { responsive: true, displayModeBar: false });
+}
+
+// ── Stats helpers ─────────────────────────────────────────────────────────
+function calcStats(arr) {
+  if (!arr || !arr.length) return { ev: null, cvar: null, maxLoss: null };
+  const sorted = [...arr].sort((a, b) => a - b);
+  const ev      = arr.reduce((s, v) => s + v, 0) / arr.length;
+  const tailN   = Math.max(1, Math.floor(sorted.length * 0.05));
+  const cvar    = sorted.slice(0, tailN).reduce((s, v) => s + v, 0) / tailN;
+  return { ev, cvar, maxLoss: sorted[0] };
+}
+
+function expandHist(h) {
+  const arr = [];
+  for (let i = 0; i < h.bin_mids.length; i++)
+    for (let j = 0; j < h.counts[i]; j++) arr.push(h.bin_mids[i]);
+  return arr;
+}
+
+function updateDistStats(uh, h) {
+  const el = document.getElementById('distStats');
+  if (!el) return;
+  const cvarRed = uh.cvar  != null && h.cvar  != null ? h.cvar  - uh.cvar  : null;
+  const mlRed   = uh.maxLoss != null && h.maxLoss != null ? h.maxLoss - uh.maxLoss : null;
+  const evChg   = uh.ev    != null && h.ev    != null ? h.ev    - uh.ev    : null;
+  const cls = v => v == null ? 'neu' : v > 0 ? 'pos' : v < 0 ? 'neg' : 'neu';
+  const fmt = (v, alwaysSign) => v == null ? '—' : (alwaysSign && v > 0 ? '+' : '') + '$' + v.toFixed(0);
+  el.innerHTML = `
+    <div class="dist-stat">
+      <div class="dist-stat-label">CVaR Reduction</div>
+      <div class="dist-stat-val ${cls(cvarRed)}">${fmt(cvarRed, true)}</div>
+    </div>
+    <div class="dist-stat">
+      <div class="dist-stat-label">Max Loss Reduction</div>
+      <div class="dist-stat-val ${cls(mlRed)}">${fmt(mlRed, true)}</div>
+    </div>
+    <div class="dist-stat">
+      <div class="dist-stat-label">EV Change</div>
+      <div class="dist-stat-val ${cls(evChg)}">${fmt(evChg, true)}</div>
+    </div>`;
+}
+
+// ── Distribution chart (Tail Risk Proof) ──────────────────────────────────
+function drawDistChartFromResponse(data) {
+  const dist = data.distributions;
+  if (!dist) return;
+
+  const uhRaw = dist.collapsed ? expandHist(dist.unhedged) : dist.unhedged_paths;
+  const hRaw  = dist.collapsed ? expandHist(dist.hedged)   : dist.hedged_paths;
+  if (!uhRaw || !hRaw) return;
+
+  updateDistStats(calcStats(uhRaw), calcStats(hRaw));
+
+  const allVals = [...uhRaw, ...hRaw];
+  const lo = Math.min(...allVals), hi = Math.max(...allVals);
+  const step = (hi - lo || 1) / 30;
+
+  function makeHist(arr) {
+    const counts = new Array(30).fill(0);
+    const mids   = Array.from({length: 30}, (_, i) => +(lo + (i + 0.5) * step).toFixed(2));
+    for (const v of arr) counts[Math.min(Math.floor((v - lo) / step), 29)]++;
+    return { counts, mids };
+  }
+
+  const uh = dist.collapsed ? { mids: dist.unhedged.bin_mids, counts: dist.unhedged.counts } : makeHist(uhRaw);
+  const h  = dist.collapsed ? { mids: dist.hedged.bin_mids,   counts: dist.hedged.counts   } : makeHist(hRaw);
+
+  const uhStats = calcStats(uhRaw), hStats = calcStats(hRaw);
+  const annots  = [];
+  if (uhStats.cvar != null) annots.push({ x: uhStats.cvar, y: 0, xref:'x', yref:'paper', text:'CVaR-95 (U)', showarrow:true, arrowcolor:'#ef4444', font:{color:'#ef4444',size:9}, ax:0, ay:-28 });
+  if (hStats.cvar  != null) annots.push({ x: hStats.cvar,  y: 0, xref:'x', yref:'paper', text:'CVaR-95 (H)', showarrow:true, arrowcolor:'#3b82f6', font:{color:'#3b82f6',size:9}, ax:0, ay:-28 });
+
+  Plotly.react('distChart', [
+    { x: uh.mids, y: uh.counts, type: 'bar', name: 'Unhedged',
+      marker: { color: 'rgba(239,68,68,0.55)', line: { color: '#ef4444', width: 1 } },
+      hovertemplate: 'P&L: $%{x:.0f}<br>Paths: %{y}<extra>Unhedged</extra>' },
+    { x: h.mids,  y: h.counts,  type: 'bar', name: `Hedged (hf=${dist.hedge_ratio.toFixed(2)})`,
+      marker: { color: 'rgba(59,130,246,0.55)', line: { color: '#3b82f6', width: 1 } },
+      hovertemplate: 'P&L: $%{x:.0f}<br>Paths: %{y}<extra>Hedged</extra>' },
+  ], {
+    ...PLOTLY_LAYOUT_BASE, barmode: 'overlay', bargap: 0.05, annotations: annots,
+    title: { text: `P&L Distribution at $${Number(dist.liability).toLocaleString()} liability`, font:{size:11,color:'#5e7a9a'}, x:0, pad:{l:8} },
+    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, title: { text: 'P&L ($)', font:{size:11} } },
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, title: { text: 'Path Count', font:{size:11} } },
+    margin: { t: 36, r: 16, b: 44, l: 56 },
+  }, { responsive: true, displayModeBar: false });
+}
+
+// ── Reproduce panel ───────────────────────────────────────────────────────
+function updateReproducePanel(sm) {
+  if (!sm) return;
+  document.getElementById('rSeed').textContent     = sm.seed ?? '—';
+  document.getElementById('rReqPaths').textContent = sm.requested_n_paths != null ? sm.requested_n_paths.toLocaleString() : '—';
+  document.getElementById('rNPaths').textContent   = sm.n_paths != null ? sm.n_paths.toLocaleString() : '—';
+  document.getElementById('rVersion').textContent  = sm.simulator_version ?? '—';
+  document.getElementById('rSource').textContent   = sm.source ?? '—';
+  document.getElementById('rDistLiab').textContent = sm.distribution_liability != null
+    ? '$' + Number(sm.distribution_liability).toLocaleString() : '—';
+  document.getElementById('rTs').textContent       = sm.timestamp_utc ?? '—';
+  document.getElementById('reproducePanel').classList.add('visible');
+}
+
+function updateChartNote(data) {
+  const el = document.getElementById('chartNote');
+  if (!el) return;
+  const liq = data.liquidity_cap;
+  if (liq && liq.available_liquidity != null) {
+    const poolFmt = '$' + (liq.available_liquidity / 1e6).toFixed(0) + 'M';
+    el.textContent = `This curve reflects a fixed external liquidity pool (${poolFmt}), not unconstrained optimal hedging demand.`;
+    el.classList.add('visible');
+  } else {
+    el.classList.remove('visible');
+  }
+}
+
+// ── Export PNG ────────────────────────────────────────────────────────────
+function exportPNG() {
+  if (!lastResponse) { toast('Run a scenario first to export'); return; }
+  const sm = lastResponse.data.scenario_metadata;
+  const caption = `ProbEdge ${sm.simulator_version} · seed=${sm.seed} · n=${sm.n_paths} · obj=${lastResponse.params.objective} · ${sm.timestamp_utc}`;
+  const el = document.getElementById('mainChart');
+  const origLayout = el.layout ? JSON.parse(JSON.stringify(el.layout)) : {};
+  Plotly.relayout('mainChart', { ...origLayout, title: { text: caption, font: { size: 10, color: '#5e7a9a' }, x: 0, pad: { l: 8 } } })
+    .then(() => Plotly.toImage('mainChart', { format: 'png', width: 1400, height: 560, scale: 2 }))
+    .then(url => {
+      Plotly.relayout('mainChart', origLayout);
+      const a = document.createElement('a');
+      a.href = url; a.download = `probedge_curve_${sm.seed}.png`; a.click();
+      toast('PNG exported with scenario caption');
+    }).catch(() => toast('Export failed'));
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!lastResponse) { toast('Run a scenario first'); return; }
+  const sm = lastResponse.data.scenario_metadata;
+  const rows = [
+    [`# ProbEdge ${sm.simulator_version} | seed=${sm.seed} | n_paths=${sm.n_paths} | ${sm.timestamp_utc}`],
+    ['liability','hedge_ratio','ev','cvar','max_loss','liquidity_binding'],
+  ];
+  for (const p of lastResponse.data.curve_points)
+    rows.push([p.liability, p.hedge_ratio, p.ev, p.cvar, p.max_loss, p.liquidity_binding]);
+  const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `probedge_hedge_curve_${sm.seed}.csv`; a.click();
+  toast('CSV exported (' + lastResponse.data.curve_points.length + ' rows)');
+}
+
+// ── Share URL ─────────────────────────────────────────────────────────────
+function copyShareURL() {
+  const p = readParams();
+  const sp = new URLSearchParams({
+    twp:        p.true_probability,
+    pmp:        p.prediction_market_price,
+    fill:       p.fill_probability,
+    liab_min:   p.liability_min,
+    liab_max:   p.liability_max,
+    n_points:   p.n_points,
+    liq_avail:  p.liquidity.available_liquidity,
+    liq_part:   p.liquidity.participation_rate,
+    liq_impact: p.liquidity.impact_factor,
+    npaths:     p.n_paths,
+    seed:       p.seed,
+    objective:  p.objective,
+    strategy:   p.strategy,
   });
+  const url = location.origin + location.pathname + '#curve?' + sp.toString();
+  navigator.clipboard.writeText(url).then(
+    () => toast('URL copied to clipboard'),
+    () => { prompt('Copy this URL:', url); }
+  );
+}
 
-  function esc(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function riskLabel(r) { return r === 'low' ? '▼ LOW' : r === 'high' ? '▲ HIGH' : '◆ MED'; }
-  function fmt(ts) {
-    if (!ts) return '—';
-    try { return new Date(ts + 'Z').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }); }
-    catch { return ts; }
+// ── Query param bootstrap ─────────────────────────────────────────────────
+function applyURLParams() {
+  const qs = new URLSearchParams(location.search);
+  const scenario = qs.get('scenario');
+  if (scenario && PRESETS[scenario]) { loadPreset(scenario, true); return; }
+
+  const hash = location.hash;
+  if (hash.startsWith('#curve?')) {
+    const sp = new URLSearchParams(hash.slice(7));
+    const setVal = (id, key) => { if (sp.has(key)) document.getElementById(id).value = sp.get(key); };
+    setVal('sTwp',       'twp');
+    setVal('sPmp',       'pmp');
+    setVal('sFill',      'fill');
+    setVal('sLiabMin',   'liab_min');
+    setVal('sLiabMax',   'liab_max');
+    setVal('sLiabSteps', 'n_points');
+    setVal('sLiqAvail',  'liq_avail');
+    setVal('sLiqPart',   'liq_part');
+    setVal('sLiqImpact', 'liq_impact');
+    setVal('sNPaths',    'npaths');
+    setVal('sSeed',      'seed');
+    setVal('sObj',       'objective');
+    setVal('sStrategy',  'strategy');
+
+    const pct = id => (parseFloat(document.getElementById(id).value) * 100).toFixed(0) + '%';
+    const num = id => document.getElementById(id).value;
+    sv('vTwp',      pct('sTwp'));
+    sv('vPmp',      pct('sPmp'));
+    sv('vFill',     pct('sFill'));
+    sv('vLiabMin',  '$' + parseFloat(document.getElementById('sLiabMin').value).toLocaleString());
+    sv('vLiabMax',  '$' + parseFloat(document.getElementById('sLiabMax').value).toLocaleString());
+    sv('vLiabSteps', num('sLiabSteps'));
+    sv('vLiqAvail', '$' + parseFloat(document.getElementById('sLiqAvail').value).toLocaleString());
+    sv('vLiqPart',  pct('sLiqPart'));
+    sv('vLiqImpact', parseFloat(document.getElementById('sLiqImpact').value).toFixed(2));
+    sv('vNPaths',   parseFloat(document.getElementById('sNPaths').value).toLocaleString());
+
+    setTimeout(runScenario, 200);
+    return;
   }
 
-  load();
+  if (hash === '#curve') document.getElementById('curve').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Contract card grid ────────────────────────────────────────────────────
+let allContracts = [];
+let riskFilter = 'all';
+let typeFilter = 'all';
+
+async function loadContracts() {
+  const res = await fetch('/api/contracts');
+  allContracts = await res.json();
+  updateStats(allContracts);
+  renderCards();
+}
+
+function updateStats(contracts) {
+  document.getElementById('statTotal').textContent  = contracts.length;
+  document.getElementById('statLow').textContent    = contracts.filter(c => c.manipulation_risk === 'low').length;
+  document.getElementById('statMed').textContent    = contracts.filter(c => c.manipulation_risk === 'medium').length;
+  document.getElementById('statHigh').textContent   = contracts.filter(c => c.manipulation_risk === 'high').length;
+  document.getElementById('statBinary').textContent = contracts.filter(c => c.market_type === 'binary').length;
+  document.getElementById('statCat').textContent    = contracts.filter(c => c.market_type === 'categorical').length;
+}
+
+function renderCards() {
+  let filtered = allContracts;
+  if (riskFilter !== 'all') filtered = filtered.filter(c => c.manipulation_risk === riskFilter);
+  if (typeFilter !== 'all') filtered = filtered.filter(c => c.market_type === typeFilter);
+
+  const grid = document.getElementById('cardGrid');
+  document.getElementById('gridCount').textContent = `${filtered.length} contract${filtered.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><p>No contracts match the selected filters.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(c => `
+    <a class="market-card" href="/contract-library#contract-${c.id}" onclick="openContract(event, ${c.id})">
+      <div class="card-top">
+        <div class="card-name">${esc(c.event_name)}</div>
+        <span class="badge badge-${c.manipulation_risk}">${riskLabel(c.manipulation_risk)}</span>
+      </div>
+      <div>
+        <span class="badge badge-${c.market_type}">${c.market_type}</span>
+      </div>
+      <div class="card-oracle">${esc(c.oracle_source)}</div>
+      <div class="card-footer">
+        <span class="card-date">${fmtDate(c.created_at)}</span>
+        <span class="card-arrow">View details →</span>
+      </div>
+    </a>
+  `).join('');
+}
+
+function openContract(e, id) {
+  e.preventDefault();
+  sessionStorage.setItem('openContractId', id);
+  window.location.href = '/contract-library';
+}
+
+document.querySelectorAll('[data-filter-risk]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-filter-risk]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    riskFilter = btn.dataset.filterRisk;
+    renderCards();
+  });
+});
+document.querySelectorAll('[data-filter-type]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-filter-type]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    typeFilter = btn.dataset.filterType;
+    renderCards();
+  });
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+applyURLParams();
+loadContracts();
 </script>
 </body>
 </html>

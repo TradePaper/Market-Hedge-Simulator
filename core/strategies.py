@@ -204,3 +204,65 @@ def simulate_strategy(inp: SimulationInputV12) -> StrategyMetrics:
     if inp.strategy == "internal_reprice":
         return simulate_internal_reprice(inp)
     return simulate_hybrid(inp)
+
+
+# ---------------------------------------------------------------------------
+# Raw PnL arrays (for distribution analysis)
+# ---------------------------------------------------------------------------
+
+def _external_hedge_pnl(inp: SimulationInputV12) -> np.ndarray:
+    rng = _make_rng(inp.seed)
+    p_market = _american_to_prob(inp.american_odds)
+    liability = inp.liability if inp.liability > 0 else _derive_liability(inp.stake, inp.american_odds)
+    requested_hedge = inp.hedge_fraction * liability
+    eff_h, cost_rate, _, _ = _liquidity_params(inp, requested_hedge)
+    hedge_premium_rate = p_market * (1.0 + cost_rate)
+    n = inp.n_paths
+    fills = rng.random(n) < inp.fill_probability
+    yes = rng.random(n) < inp.true_win_prob
+    eff_hedges = np.where(fills, eff_h, 0.0)
+    premiums = eff_hedges * hedge_premium_rate
+    return np.where(yes, (inp.stake - liability) + eff_hedges - premiums, inp.stake - premiums)
+
+
+def _internal_reprice_pnl(inp: SimulationInputV12) -> np.ndarray:
+    rng = _make_rng(inp.seed)
+    liability = inp.liability if inp.liability > 0 else _derive_liability(inp.stake, inp.american_odds)
+    n = inp.n_paths
+    yes = rng.random(n) < inp.true_win_prob
+    if inp.internal_reprice and inp.internal_reprice.enabled:
+        m = inp.internal_reprice
+        effective_handle = inp.stake * max(0.0, 1.0 - m.handle_retention_decay * m.odds_move_sensitivity * liability)
+    else:
+        effective_handle = inp.stake
+    return np.where(yes, effective_handle - liability, effective_handle)
+
+
+def _hybrid_pnl(inp: SimulationInputV12) -> np.ndarray:
+    rng = _make_rng(inp.seed)
+    p_market = _american_to_prob(inp.american_odds)
+    liability = inp.liability if inp.liability > 0 else _derive_liability(inp.stake, inp.american_odds)
+    reprice_liability = (1.0 - inp.hedge_fraction) * liability
+    hedge_liability = inp.hedge_fraction * liability
+    if inp.internal_reprice and inp.internal_reprice.enabled:
+        m = inp.internal_reprice
+        effective_handle = inp.stake * max(0.0, 1.0 - m.handle_retention_decay * m.odds_move_sensitivity * reprice_liability)
+    else:
+        effective_handle = inp.stake
+    eff_h, cost_rate, _, _ = _liquidity_params(inp, hedge_liability)
+    hedge_premium_rate = p_market * (1.0 + cost_rate)
+    n = inp.n_paths
+    fills = rng.random(n) < inp.fill_probability
+    yes = rng.random(n) < inp.true_win_prob
+    eff_hedges = np.where(fills, eff_h, 0.0)
+    premiums = eff_hedges * hedge_premium_rate
+    return np.where(yes, effective_handle - liability + eff_hedges - premiums, effective_handle - premiums)
+
+
+def simulate_strategy_raw(inp: SimulationInputV12) -> np.ndarray:
+    """Return the raw per-path P&L array for distribution analysis."""
+    if inp.strategy == "external_hedge":
+        return _external_hedge_pnl(inp)
+    if inp.strategy == "internal_reprice":
+        return _internal_reprice_pnl(inp)
+    return _hybrid_pnl(inp)

@@ -191,3 +191,119 @@ POST /simulate/v12/curve
 GET  /api/risk-transfer?strategy=&objective=&liabilities=&stake=&american_odds=&true_win_prob=&fill_probability=&n_paths=&seed=
 GET  /status
 ```
+
+
+## Article Reproduction
+
+The canonical article scenario can be reproduced exactly from the live app or via the API.
+
+### Loading in the UI
+
+Navigate to the Event Markets Intelligence page with the query parameter:
+
+```
+https://market-hedge-simulator.replit.app/event-markets?scenario=superbowl_v1
+```
+
+The page will auto-load the Super Bowl preset and run the Monte Carlo engine with a fixed seed,
+producing identical curves to those published in the article.
+
+### Reproducing via API
+
+```bash
+curl -s -X POST https://market-hedge-simulator.replit.app/api/risk-transfer/interactive \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy_modes": ["external_hedge", "internal_reprice", "hybrid"],
+    "objective": "min_cvar",
+    "liabilities": [500, 1000, 2000, 4000, 8000],
+    "base_input": {
+      "stake": 100,
+      "american_odds": -110,
+      "true_win_prob": 0.54,
+      "fill_probability": 0.85,
+      "slippage_bps": 8,
+      "fee_bps": 2,
+      "latency_bps": 3,
+      "n_paths": 500,
+      "seed": "superbowl_v1",
+      "liquidity": {
+        "available_liquidity": 1000000,
+        "participation_rate": 0.2,
+        "impact_factor": 0.6,
+        "depth_exponent": 1.0
+      }
+    }
+  }' | python3 -m json.tool
+```
+
+### Sample Response (truncated)
+
+```json
+{
+  "scenario": {
+    "seed": "superbowl_v1",
+    "n_paths": 500,
+    "fill_probability": 0.85,
+    "timestamp_utc": "2026-03-05T00:00:00Z"
+  },
+  "objective": "min_cvar",
+  "series": [
+    {
+      "strategy": "external_hedge",
+      "points": [
+        { "liability": 500,  "optimal_hedge_ratio": 0.45, "ev": -12.3, "cvar_95": -48.1, "max_loss": -52.0, "distribution_collapsed": false },
+        { "liability": 1000, "optimal_hedge_ratio": 0.50, "ev": -24.6, "cvar_95": -91.3, "max_loss": -104.0, "distribution_collapsed": false }
+      ]
+    }
+  ]
+}
+```
+
+### Tail-Risk Distribution
+
+To fetch the unhedged vs hedged P&L distribution for a single liability point:
+
+```bash
+curl -s -X POST https://market-hedge-simulator.replit.app/api/risk-transfer/distribution \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy": "external_hedge",
+    "liability": 2000.0,
+    "hedge_fraction": 0.5,
+    "base_input": { "stake": 100, "american_odds": -110, "true_win_prob": 0.54,
+                    "fill_probability": 0.85, "n_paths": 500, "seed": "superbowl_v1",
+                    "slippage_bps": 8, "fee_bps": 2, "latency_bps": 3,
+                    "liquidity": { "available_liquidity": 1000000, "participation_rate": 0.2,
+                                   "impact_factor": 0.6, "depth_exponent": 1.0 } }
+  }'
+```
+
+Returns `unhedged` and `hedged` histogram objects with `bin_mids`, `counts`, `ev`, `cvar_95`, and `max_loss`.
+
+### Chart Interpretation
+
+- **Primary curve**: each line is a strategy (External Hedge / Internal Reprice / Hybrid); X-axis is sportsbook liability in dollars; Y-axis is the selected metric (EV, CVaR-95, Max Loss, or Optimal Hedge Ratio) at the liability level that minimises CVaR-95
+- **Tail-risk overlay**: semi-transparent bars show the P&L distribution across all Monte Carlo paths — red = unhedged, blue = hedged; CVaR annotations mark the 5th-percentile tail mean
+- **Determinism**: results are identical across runs when using the same `seed` string (MD5-mapped to a 32-bit integer for NumPy's default RNG)
+
+### Objectives
+
+| Objective | Score function | Best for |
+|---|---|---|
+| `max_ev` | `metrics.ev` | Maximize expected return from hedging |
+| `min_cvar` | `metrics.cvar_95` | Risk-averse books; minimise tail-loss exposure |
+| `min_max_loss` | `metrics.max_loss` | Hard floor on worst-case scenario |
+| `max_sharpe` | `metrics.ev / (p95 - p5)` | Risk-adjusted return optimisation |
+| `target_ev_min_risk` | `cvar_95` if `ev ≥ 0` else `-∞` | Only hedge when EV is non-negative |
+
+**Note**: `min_cvar` with `fill_probability < 1.0` often returns `hf=0` because unfilled hedge paths anchor the CVaR tail regardless of hedge fraction. Use `max_ev` for the most informative curves.
+
+Each point in the response also includes `unhedged_paths` and `hedged_paths` — the raw per-path P&L arrays (500 values each) for building your own histogram overlays client-side.
+
+### Limitations
+
+- `n_paths` is capped at 500 on the interactive endpoint and 2000 on the distribution endpoint to bound server latency
+- Liquidity model uses a power-law market-impact function; real slippage curves may differ
+- Internal Reprice strategy does not model competitor re-entry after odds move
+- Fill probability is treated as i.i.d. per path; correlated order-book dynamics are not modelled
